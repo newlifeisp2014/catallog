@@ -184,9 +184,14 @@ function orderRow(o, showActions) {
     <td class="td-amount">${Number(o.total_price || o.total).toLocaleString()} <span style="font-size:0.72rem;font-weight:500;">دينار</span></td>
     <td><span class="badge ${s.cls}">${s.label}</span></td>
     ${showActions ? `<td class="td-actions">
-      <button class="btn btn-ghost btn-sm" onclick="viewOrder('${id}')" title="عرض التفاصيل">
-        <i class="fas fa-eye"></i>
-      </button>
+      <div style="display:flex;gap:0.35rem;align-items:center;">
+        <button class="btn btn-ghost btn-sm" onclick="viewOrder('${id}')" title="عرض التفاصيل">
+          <i class="fas fa-eye"></i>
+        </button>
+        <button class="btn btn-sm" style="background:#25D366;color:white;border:none;padding:0.35rem 0.6rem;border-radius:var(--radius-sm);" onclick="sendWhatsAppNotification('${id}')" title="إرسال رسالة واتساب للزبون">
+          <i class="fab fa-whatsapp"></i>
+        </button>
+      </div>
     </td>` : ''}
   </tr>`;
 }
@@ -258,6 +263,11 @@ function viewOrder(id) {
 
   // Actions
   let actions = `<button class="btn btn-ghost" onclick="closeOrderModal()">إغلاق</button>`;
+  actions += `
+    <button class="btn" style="background:#25D366;color:white;font-weight:700;" onclick="sendWhatsAppNotification('${id}')">
+      <i class="fab fa-whatsapp"></i> واتساب
+    </button>`;
+
   if (status === 'pending') {
     actions += `
       <button class="btn btn-primary" style="flex:1;" onclick="updateOrderStatus('${id}','confirmed')">
@@ -269,7 +279,7 @@ function viewOrder(id) {
   } else if (status === 'confirmed') {
     actions += `
       <button class="btn btn-primary" style="flex:1;" onclick="updateOrderStatus('${id}','delivered')">
-        <i class="fas fa-flag-checkered"></i> تم التسليم
+        <i class="fas fa-flag-checkered"></i> تم التثبيت والتسليم
       </button>`;
   }
 
@@ -291,10 +301,40 @@ async function updateOrderStatus(id, status) {
     if (!res.ok) throw new Error();
     showToast('تم تحديث حالة الطلب');
     closeOrderModal();
+
+    if (status === 'delivered' || status === 'confirmed') {
+      if (confirm('هل تريد إرسال إشعار جاهزية للزبون عبر الواتساب الآن؟')) {
+        sendWhatsAppNotification(id);
+      }
+    }
+
     loadData();
   } catch {
     showToast('فشل تحديث الحالة', 'error');
   }
+}
+
+// ── WhatsApp Integration ──────────────────────────────────────
+function formatWhatsAppPhone(phone) {
+  let cleaned = (phone || '').replace(/[^0-9]/g, '');
+  if (cleaned.startsWith('07')) {
+    cleaned = '964' + cleaned.substring(1);
+  } else if (cleaned.startsWith('7') && cleaned.length === 10) {
+    cleaned = '964' + cleaned;
+  }
+  return cleaned;
+}
+
+function sendWhatsAppNotification(orderId) {
+  const o = allOrders.find(x => (x.order_id || x.id) === orderId);
+  if (!o) return;
+
+  const phone = formatWhatsAppPhone(o.customer_phone);
+  const gamesList = (o.games || []).map(g => `• ${g.name_ar || g.nameAr || g.name} (هارد ${g.hardDrive || '1'})`).join('\n');
+  const text = `أهلاً بك *${o.customer_name}* 👋\n\nتم إكمال تجهيز وتثبيت ألعابك بنجاح في *مكتبة NewLife* 🎮:\n\n${gamesList}\n\n💰 المجموع: *${Number(o.total_price || o.total).toLocaleString()} دينار*\n\n📌 يمكنك الحضور الآن لاستلام هاردك/جهازك.\nشكراً لتسوقك معنا! ❤️`;
+
+  const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+  window.open(url, '_blank');
 }
 
 // ── Games ─────────────────────────────────────────────────────
