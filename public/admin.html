@@ -264,13 +264,19 @@
           <input type="hidden" id="gameEditId">
 
           <div class="form-grid">
-            <div class="form-group">
-              <label for="gameName">الاسم بالإنجليزي *</label>
-              <input type="text" id="gameName" class="form-input" placeholder="مثال: God of War" required>
+            <div class="form-group form-group--span2">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.35rem;">
+                <label for="gameName" style="margin-bottom:0;">الاسم بالإنجليزي *</label>
+                <button type="button" class="btn btn-ghost btn-sm" onclick="fetchGameDetailsOnline()" style="font-size:0.78rem;color:var(--clr-gold);padding:0.2rem 0.5rem;">
+                  <i class="fas fa-wand-magic-sparkles"></i> جلب تلقائي (صورة وشرح)
+                </button>
+              </div>
+              <input type="text" id="gameName" class="form-input" placeholder="مثال: God of War" required onblur="if(!document.getElementById('gameImage').value) fetchGameDetailsOnline()">
             </div>
-            <div class="form-group">
-              <label for="gameNameAr">الاسم بالعربي *</label>
-              <input type="text" id="gameNameAr" class="form-input" placeholder="مثال: جود اوف وور" required>
+
+            <div class="form-group form-group--span2">
+              <label for="gameNameAr">الاسم بالعربي</label>
+              <input type="text" id="gameNameAr" class="form-input" placeholder="مثال: جود اوف وور">
             </div>
 
             <div class="form-group">
@@ -310,6 +316,11 @@
             <div class="form-group form-group--span2">
               <label for="gameImage">رابط الصورة</label>
               <input type="url" id="gameImage" class="form-input" placeholder="اتركه فارغاً وسيقوم النظام بجلبه تلقائياً">
+            </div>
+
+            <div class="form-group form-group--span2">
+              <label for="gameDescription">الشرح / نبذة عن اللعبة</label>
+              <textarea id="gameDescription" class="form-input" rows="3" placeholder="سيتم جلبه تلقائياً أو يمكنك كتابته هنا..."></textarea>
             </div>
           </div>
         </form>

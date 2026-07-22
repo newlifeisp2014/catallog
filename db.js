@@ -84,6 +84,15 @@ async function initTables() {
             ADD COLUMN IF NOT EXISTS otp_expiry TIMESTAMP;
         `).catch(err => console.log('OTP columns already exist or error:', err.message));
 
+        // System settings table for tracking initialization
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS system_settings (
+                key VARCHAR(100) PRIMARY KEY,
+                value TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
         // Indexes
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)`);
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_orders_phone ON orders(customer_phone)`);

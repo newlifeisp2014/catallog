@@ -338,6 +338,7 @@ function sendWhatsAppNotification(orderId) {
 }
 
 // ── Games ─────────────────────────────────────────────────────
+// ── Games ─────────────────────────────────────────────────────
 function renderGames() {
   const grid  = document.getElementById('adminGamesGrid');
   const input = document.getElementById('adminSearchInput');
@@ -381,7 +382,10 @@ function renderGames() {
         <button class="btn btn-ghost btn-sm" style="flex:1;" onclick="openEditGameModal('${game.id}')">
           <i class="fas fa-edit"></i> تعديل
         </button>
-        <button class="btn btn-danger btn-sm" onclick="deleteGame('${game.id}')">
+        <button class="btn btn-ghost btn-sm" onclick="refreshGameImage('${game.id}')" title="تحديث الصورة والشرح تلقائياً">
+          <i class="fas fa-sync-alt"></i>
+        </button>
+        <button class="btn btn-danger btn-sm" onclick="deleteGame('${game.id}')" title="حذف اللعبة">
           <i class="fas fa-trash-alt"></i>
         </button>
       </div>
@@ -404,17 +408,69 @@ function openEditGameModal(id) {
   const game = allGames.find(g => g.id === id);
   if (!game) return;
 
-  document.getElementById('gameEditId').value  = game.id;
-  document.getElementById('gameName').value    = game.name;
-  document.getElementById('gameNameAr').value  = game.nameAr || '';
-  document.getElementById('gamePrice').value   = game.price;
-  document.getElementById('gameSize').value    = game.size;
-  document.getElementById('gameCategory').value = game.category;
-  document.getElementById('gameHardDrive').value = game.hardDrive || '1';
-  document.getElementById('gameImage').value   = game.image || '';
+  document.getElementById('gameEditId').value     = game.id;
+  document.getElementById('gameName').value       = game.name;
+  document.getElementById('gameNameAr').value     = game.nameAr || '';
+  document.getElementById('gamePrice').value      = game.price;
+  document.getElementById('gameSize').value       = game.size;
+  document.getElementById('gameCategory').value   = game.category;
+  document.getElementById('gameHardDrive').value  = game.hardDrive || '1';
+  document.getElementById('gameImage').value      = game.image || '';
+  document.getElementById('gameDescription').value = game.description || '';
 
   document.getElementById('gameModalTitle').textContent = 'تعديل اللعبة';
   document.getElementById('gameModal').classList.add('active');
+}
+
+async function fetchGameDetailsOnline() {
+  const nameInput = document.getElementById('gameName');
+  const catInput  = document.getElementById('gameCategory');
+  const query     = nameInput.value.trim();
+  if (!query) {
+    showToast('يرجى كتابة الاسم بالإنجليزي أولاً', 'info');
+    return;
+  }
+
+  showToast('جاري البحث عن صورة وشرح اللعبة...', 'info');
+
+  try {
+    const res  = await fetch(`/api/games/search-image?q=${encodeURIComponent(query)}&category=${encodeURIComponent(catInput.value)}`);
+    const data = await res.json();
+
+    if (data && data.image) {
+      document.getElementById('gameImage').value = data.image;
+      if (data.description && !document.getElementById('gameDescription').value) {
+        document.getElementById('gameDescription').value = data.description;
+      }
+      showToast('تم جلب صورة وشرح اللعبة بنجاح! ✨');
+    } else {
+      showToast('لم يتم العثور على صورة تلقائية للعبة', 'info');
+    }
+  } catch (e) {
+    console.error('fetchGameDetailsOnline error:', e);
+    showToast('تعذر جلب تفاصيل اللعبة', 'error');
+  }
+}
+
+async function refreshGameImage(id) {
+  const game = allGames.find(g => g.id === id);
+  if (!game) return;
+
+  showToast(`جاري تحديث صورة وشرح "${game.nameAr || game.name}"...`, 'info');
+
+  try {
+    const res = await fetch(`/api/games/refresh-image/${id}`, { method: 'POST' });
+    const data = await res.json();
+
+    if (res.ok && data.success) {
+      showToast('تم تحديث صورة وشرح اللعبة بنجاح! ✨');
+      loadData();
+    } else {
+      showToast(data.error || 'فشل تحديث الصورة', 'error');
+    }
+  } catch (e) {
+    showToast('حدث خطأ أثناء التحديث', 'error');
+  }
 }
 
 async function saveGame(e) {
@@ -424,13 +480,14 @@ async function saveGame(e) {
   const nameAr = document.getElementById('gameNameAr').value.trim();
 
   const body = {
-    name:      nameEn,
-    nameAr:    nameAr || nameEn,
-    price:     parseInt(document.getElementById('gamePrice').value) || 0,
-    size:      document.getElementById('gameSize').value.trim(),
-    category:  document.getElementById('gameCategory').value,
-    hardDrive: document.getElementById('gameHardDrive').value,
-    image:     document.getElementById('gameImage').value.trim()
+    name:        nameEn,
+    nameAr:      nameAr || nameEn,
+    price:       parseInt(document.getElementById('gamePrice').value) || 0,
+    size:        document.getElementById('gameSize').value.trim(),
+    category:    document.getElementById('gameCategory').value,
+    hardDrive:   document.getElementById('gameHardDrive').value,
+    image:       document.getElementById('gameImage').value.trim(),
+    description: document.getElementById('gameDescription').value.trim()
   };
 
   const btn  = e.target.querySelector('button[type="submit"]') ||
@@ -468,7 +525,9 @@ async function deleteGame(id) {
     const res = await fetch(`/api/games/${id}`, { method: 'DELETE' });
     if (!res.ok) throw new Error();
     showToast('تم حذف اللعبة');
-    loadData();
+    allGames = allGames.filter(g => g.id !== id);
+    renderGames();
+    updateDashboardStats();
   } catch {
     showToast('خطأ في الحذف', 'error');
   }
