@@ -379,11 +379,14 @@ function openEditGameModal(id) {
 
 async function saveGame(e) {
   e.preventDefault();
-  const id   = document.getElementById('gameEditId').value;
+  const id     = document.getElementById('gameEditId').value;
+  const nameEn = document.getElementById('gameName').value.trim();
+  const nameAr = document.getElementById('gameNameAr').value.trim();
+
   const body = {
-    name:      document.getElementById('gameName').value.trim(),
-    nameAr:    document.getElementById('gameNameAr').value.trim(),
-    price:     parseInt(document.getElementById('gamePrice').value),
+    name:      nameEn,
+    nameAr:    nameAr || nameEn,
+    price:     parseInt(document.getElementById('gamePrice').value) || 0,
     size:      document.getElementById('gameSize').value.trim(),
     category:  document.getElementById('gameCategory').value,
     hardDrive: document.getElementById('gameHardDrive').value,
@@ -400,12 +403,17 @@ async function saveGame(e) {
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify(body)
     });
-    if (!res.ok) throw new Error();
+    const responseData = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(responseData.error || 'حدث خطأ أثناء الحفظ');
+    }
+
     showToast(id ? 'تم تعديل اللعبة' : 'تمت إضافة اللعبة');
     closeGameModal();
     loadData();
-  } catch {
-    showToast('حدث خطأ أثناء الحفظ', 'error');
+  } catch (err) {
+    showToast(err.message || 'حدث خطأ أثناء الحفظ', 'error');
   } finally {
     if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> حفظ اللعبة'; }
   }
