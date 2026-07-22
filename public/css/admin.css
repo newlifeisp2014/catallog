@@ -675,29 +675,86 @@ select.form-input option {
 .customer-rank--silver { background: rgba(148,163,184,0.15); color: #94a3b8; }
 .customer-rank--bronze { background: rgba(180,83,9,0.15);   color: #b45309; }
 
-/* ─── Responsive Admin ────────────────────── */
+/* ─── Responsive Admin Mobile Styling ────────────────────── */
 @media (max-width: 900px) {
   .sidebar {
     transform: translateX(100%);
+    z-index: 1000;
   }
 
   .sidebar.open {
     transform: translateX(0);
-    box-shadow: var(--shadow-lg);
+    box-shadow: 0 0 30px rgba(0,0,0,0.85);
   }
 
   .admin-main {
     margin-right: 0;
+    width: 100%;
+  }
+
+  .admin-header {
+    padding: 0.75rem 1rem;
   }
 
   .admin-header__menu { display: flex; }
+  .admin-header__title { font-size: 1.1rem; }
 
   .form-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 640px) {
-  .admin-content { padding: var(--space-md); }
-  .stats-grid { grid-template-columns: repeat(2, 1fr); }
-  .data-table { display: block; overflow-x: auto; }
-  .modal { max-height: 100dvh; border-radius: 0; }
+  .admin-content { padding: 0.65rem; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+  .stat-card { padding: 0.75rem; }
+  .stat-value { font-size: 1.2rem; }
+  .stat-label { font-size: 0.72rem; }
+  
+  .table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: var(--radius-md);
+  }
+
+  .data-table {
+    min-width: 520px;
+  }
+
+  .data-table tbody td {
+    padding: 0.6rem;
+    font-size: 0.8rem;
+  }
+
+  .admin-games-grid {
+    grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
+    gap: 0.6rem;
+  }
+
+  .admin-game-card__img {
+    height: 115px;
+  }
+
+  .admin-game-card__body {
+    padding: 0.55rem;
+  }
+
+  .admin-game-card__name {
+    font-size: 0.82rem;
+  }
+
+  .modal {
+    width: 95%;
+    max-height: 88vh;
+    border-radius: var(--radius-lg);
+    padding: 1rem;
+    overflow-y: auto;
+  }
+
+  .order-detail-section {
+    padding: 0.65rem;
+  }
+
+  .btn-sm {
+    padding: 0.35rem 0.6rem;
+    font-size: 0.78rem;
+  }
 }

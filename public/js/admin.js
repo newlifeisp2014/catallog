@@ -461,7 +461,7 @@ function sendWhatsAppNotification(orderId) {
   const totalPrice    = parseFloat(o.totalPrice || o.total_price || o.total || 0);
 
   const phone = formatWhatsAppPhone(customerPhone);
-  const gamesList = (o.games || []).map(g => `• ${g.name_ar || g.nameAr || g.name} (هارد ${g.hardDrive || '1'})`).join('\n');
+  const gamesList = (o.games || []).map(g => `• ${g.name_ar || g.nameAr || g.name}`).join('\n');
   const text = `أهلاً بك *${customerName}* 👋\n\nتم إكمال تجهيز وتثبيت ألعابك بنجاح في *مكتبة NewLife* 🎮:\n\n${gamesList}\n\n💰 المجموع: *${totalPrice.toLocaleString()} دينار*\n\n📌 يمكنك الحضور الآن لاستلام هاردك/جهازك.\nشكراً لتسوقك معنا! ❤️`;
 
   const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
