@@ -1,21 +1,27 @@
 {
   "name": "NewLife PS4 Catalog",
   "short_name": "NewLife",
-  "description": "Premium PS4 Games Catalog and Order System",
+  "description": "مكتبة ألعاب البلايستيشن 4",
+  "id": "/index.html",
   "start_url": "/index.html",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#0a0a0a",
-  "theme_color": "#6366f1",
+  "orientation": "portrait",
+  "background_color": "#0a0a14",
+  "theme_color": "#7c3aed",
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/icons/icon-192x192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
       "src": "/icons/icon-512x512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }

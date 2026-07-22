@@ -738,7 +738,13 @@ function showToast(msg, type = 'success') {
   }, 3200);
 }
 
-// ── Admin PWA Installation Logic ──────────────────────────────
+// ── Admin PWA Installation Logic & Service Worker ──────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
+
 let deferredAdminPWAInstallPrompt = null;
 
 window.addEventListener('beforeinstallprompt', e => {
@@ -760,7 +766,7 @@ function triggerAdminPWAInstall() {
       if (btn) btn.style.display = 'none';
     });
   } else {
-    alert('📱 لتثبيت تطبيق لوحة الأدمن على جهازك:\n\n• على الآيفون: اضغط زر المشاركة (⎕↑) في Safari ثم اختر "إضافة إلى الشاشة الرئيسية"\n• على الأندرويد/الحاسوب: اضغط خيارات المتصفح (⋮) ثم اختر "تثبيت التطبيق"');
+    alert('📱 لتثبيت تطبيق لوحة الأدمن كبرنامج كامل على جهازك:\n\n• على الأندرويد/الحاسوب: اضغط خيارات المتصفح (⋮) ثم اختر "تثبيت التطبيق (Install App)"\n• على الآيفون: اضغط زر المشاركة (⎕↑) ثم اختر "إضافة إلى الشاشة الرئيسية"');
   }
 }
 

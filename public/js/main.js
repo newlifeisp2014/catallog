@@ -464,7 +464,13 @@ function showToast(msg, type = 'success') {
   }, 3200);
 }
 
-// ── PWA Installation Logic ────────────────────────────────────
+// ── PWA Installation Logic & Service Worker ───────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
+
 let deferredPWAInstallPrompt = null;
 
 window.addEventListener('beforeinstallprompt', e => {
@@ -486,6 +492,6 @@ function triggerPWAInstall() {
       if (btn) btn.style.display = 'none';
     });
   } else {
-    alert('📱 لتثبيت التطبيق على جهازك:\n\n• على الآيفون: اضغط زر المشاركة (⎕↑) في Safari ثم اختر "إضافة إلى الشاشة الرئيسية"\n• على الأندرويد/الحاسوب: اضغط خيارات المتصفح (⋮) ثم اختر "تثبيت التطبيق"');
+    alert('📱 لتثبيت التطبيق كبرنامج كامل على جهازك:\n\n• على الأندرويد/الحاسوب: اضغط خيارات المتصفح (⋮) ثم اختر "تثبيت التطبيق (Install App)"\n• على الآيفون: اضغط زر المشاركة (⎕↑) ثم اختر "إضافة إلى الشاشة الرئيسية"');
   }
 }
