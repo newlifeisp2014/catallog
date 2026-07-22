@@ -242,6 +242,20 @@ function viewOrder(id) {
         </button>
       </div>
       <div style="display:flex;flex-direction:column;gap:0.5rem;font-size:0.9rem;margin-top:0.5rem;">
+    const completedGames = o.completedGames || o.completed_games || [];
+    const totalGames     = (o.games || []).length;
+    const completedCount = (o.games || []).filter(g => completedGames.includes(g.id || g.name || g.nameAr)).length;
+    const progressPct    = totalGames > 0 ? Math.round((completedCount / totalGames) * 100) : 0;
+
+    const content = `
+    <div class="order-detail-section">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <h4>معلومات الزبون</h4>
+        <button class="btn btn-ghost btn-sm" onclick="editOrderModal('${orderId}')" style="color:var(--clr-gold);font-size:0.8rem;">
+          <i class="fas fa-edit"></i> تعديل بيانات الطلب
+        </button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:0.5rem;font-size:0.9rem;margin-top:0.5rem;">
         <div><i class="fas fa-user" style="color:var(--clr-primary-light);width:18px;margin-left:6px;"></i><strong>الاسم:</strong> ${customerName}</div>
         <div><i class="fas fa-phone" style="color:var(--clr-primary-light);width:18px;margin-left:6px;"></i><strong>الهاتف:</strong> ${customerPhone}</div>
         <div style="margin-top:0.25rem;"><strong>الحالة:</strong> <span class="badge ${s.cls}" style="margin-right:0.3rem;">${s.label}</span></div>
@@ -249,14 +263,38 @@ function viewOrder(id) {
     </div>
 
     <div class="order-detail-section">
-      <h4>الألعاب المطلوبة (${(o.games || []).length})</h4>
-      ${(o.games || []).map(g => `
-        <div class="order-game-item">
-          <i class="fas fa-compact-disc" style="color:var(--clr-primary-light);"></i>
-          <span>${g.name_ar || g.nameAr || g.name}</span>
-          <span class="order-game-item__hdd">هارد ${g.hardDrive || '1'}</span>
-        </div>
-      `).join('')}
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.6rem;">
+        <h4 style="margin:0;">تحديد الألعاب المنجزة (${completedCount} / ${totalGames})</h4>
+        <span style="font-size:0.8rem;font-weight:700;color:var(--clr-gold);">${progressPct}% مكتمل</span>
+      </div>
+      
+      <!-- Progress Bar -->
+      <div style="width:100%;height:8px;background:var(--clr-surface-2);border-radius:10px;overflow:hidden;margin-bottom:0.8rem;">
+        <div style="width:${progressPct}%;height:100%;background:linear-gradient(90deg, #7c3aed, #f59e0b);transition:width 0.3s ease;"></div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:0.4rem;">
+        ${(o.games || []).map(g => {
+          const gId   = g.id || g.name || g.nameAr;
+          const isDone = completedGames.includes(gId);
+          return `
+            <div class="order-game-item" style="display:flex;align-items:center;justify-content:space-between;padding:0.65rem 0.8rem;background:var(--clr-surface-2);border-radius:var(--radius-md);border:1px solid ${isDone ? 'rgba(34,197,94,0.3)' : 'var(--clr-border-light)'};">
+              <label style="display:flex;align-items:center;gap:0.6rem;cursor:pointer;flex:1;margin:0;">
+                <input
+                  type="checkbox"
+                  ${isDone ? 'checked' : ''}
+                  onchange="toggleGameCompleted('${orderId}', '${gId.replace(/'/g, "\\'")}', this.checked)"
+                  style="width:18px;height:18px;cursor:pointer;accent-color:var(--clr-gold);"
+                >
+                <span style="font-size:0.92rem;font-weight:${isDone ? '700' : '500'};color:${isDone ? 'var(--clr-success)' : 'var(--clr-text)'};text-decoration:${isDone ? 'line-through' : 'none'};">
+                  ${g.name_ar || g.nameAr || g.name}
+                </span>
+              </label>
+              <span class="order-game-item__hdd" style="font-size:0.75rem;padding:0.2rem 0.5rem;background:rgba(255,255,255,0.05);border-radius:var(--radius-sm);">هارد ${g.hardDrive || '1'}</span>
+            </div>
+          `;
+        }).join('')}
+      </div>
     </div>
 
     <div class="order-detail-section" style="background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.15);">
@@ -298,6 +336,45 @@ function viewOrder(id) {
 
   document.getElementById('orderModalActions').innerHTML = actions;
   document.getElementById('orderModal').classList.add('active');
+}
+
+async function toggleGameCompleted(orderId, gameId, isChecked) {
+  const o = allOrders.find(x => (x.orderId || x.order_id || x.id) === orderId);
+  if (!o) return;
+
+  let completedGames = [...(o.completedGames || o.completed_games || [])];
+  if (isChecked) {
+    if (!completedGames.includes(gameId)) completedGames.push(gameId);
+  } else {
+    completedGames = completedGames.filter(id => id !== gameId);
+  }
+
+  o.completedGames = completedGames;
+  o.completed_games = completedGames;
+
+  try {
+    const res = await fetch(`/api/orders/${orderId}`, {
+      method:  'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ completedGames })
+    });
+    if (!res.ok) throw new Error();
+    
+    const totalGames = (o.games || []).length;
+    if (completedGames.length === totalGames && totalGames > 0) {
+      showToast('🎉 تم تثبيت وإنجاز جميع ألعاب الطلب!');
+      if (confirm('تهانينا! تم إنجاز جميع الألعاب. هل تريد تحويل حالة الطلب إلى "مكتمل" وإرسال رسالة إشعار للزبون عبر الواتساب؟')) {
+        updateOrderStatus(orderId, 'delivered');
+      } else {
+        viewOrder(orderId);
+      }
+    } else {
+      showToast(isChecked ? 'تم تحديد اللعبة كـ مكتملة ✅' : 'تم إلغاء تحديد اللعبة');
+      viewOrder(orderId);
+    }
+  } catch (e) {
+    showToast('فشل حفظ حالة الإنجاز', 'error');
+  }
 }
 
 function editOrderModal(id) {

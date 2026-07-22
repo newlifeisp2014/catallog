@@ -283,31 +283,40 @@ async function searchUnsplash(query) {
     }
 }
 
-// ==================== 4. صورة احتياطية ====================
+// ==================== 4. PS4 Wikipedia / Cover Art API ====================
 
-function getPlaceholderImage(gameName, category) {
-    const colors = {
-        'Action': 'e63946',
-        'Adventure': 'f4a261',
-        'Fighting': 'e76f51',
-        'Racing': '2a9d8f',
-        'Sports': '264653',
-        'Shooter': 'e9c46a',
-        'RPG': '9b5de5',
-        'Horror': '1a1a2e',
-        'default': '1d3557'
-    };
+async function searchPS4Cover(query) {
+    try {
+        const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&format=json&prop=pageimages&titles=${encodeURIComponent(query)}&piprop=original|thumbnail&pithumbsize=600`;
+        const data = await fetchJson(searchUrl);
+        if (!data || !data.query || !data.query.pages) return null;
 
-    const color = colors[category] || colors['default'];
-    const text = encodeURIComponent(gameName.substring(0, 15));
-
-    return `https://placehold.co/400x600/${color}/ffffff?text=${text}&font=roboto`;
+        const pages = data.query.pages;
+        for (const pageId in pages) {
+            const page = pages[pageId];
+            if (page.original && page.original.source && (page.original.source.includes('cover') || page.original.source.includes('boxart') || page.original.source.includes('jpg') || page.original.source.includes('png'))) {
+                return { image: page.original.source, source: 'wikipedia' };
+            } else if (page.thumbnail && page.thumbnail.source) {
+                return { image: page.thumbnail.source, source: 'wikipedia' };
+            }
+        }
+        return null;
+    } catch (e) {
+        return null;
+    }
 }
 
-// ==================== البحث الشامل (RAWG أولاً) ====================
+// ==================== 5. صورة غلاف بلايستيشن 4 احتياطية ====================
+
+function getPlaceholderImage(gameName, category) {
+    const text = encodeURIComponent(`PS4 | ${gameName.substring(0, 18)}`);
+    return `https://placehold.co/400x600/003087/ffffff?text=${text}&font=space-grotesk`;
+}
+
+// ==================== البحث الشامل عن غلاف اللعبة ====================
 
 async function searchGameImage(query, category = 'default') {
-    console.log(`\n🔍 البحث عن: "${query}"`);
+    console.log(`\n🔍 البحث عن غلاف اللعبة: "${query}"`);
 
     let result = { 
         image: null, 
@@ -316,39 +325,49 @@ async function searchGameImage(query, category = 'default') {
         source: 'none'
     };
 
-    // 1. جرب RAWG أولاً (أفضل للألعاب الحصرية مثل God of War)
-    const rawg = await searchRAWG(query);
-    if (rawg && rawg.image) {
-        result = { ...rawg };
-        console.log(`✅ RAWG: ${rawg.gameName}`);
+    // 1. جرب Steam أولاً (لأن لديه أغلفة عمودية دقيقة 600x900_2x)
+    const steam = await searchSteam(query);
+    if (steam && steam.image) {
+        result = { ...steam };
+        console.log(`✅ Steam Cover: ${steam.gameName}`);
     }
 
-    // 2. إذا RAWG فشل، جرب Steam
+    // 2. إذا Steam فشل، جرب RAWG للألعاب الحصرية على PS4
     if (!result.image) {
-        const steam = await searchSteam(query);
-        if (steam && steam.image) {
-            result = { ...steam };
-            console.log(`✅ Steam: ${steam.gameName}`);
+        const rawg = await searchRAWG(query);
+        if (rawg && rawg.image) {
+            result = { ...rawg };
+            console.log(`✅ RAWG Cover: ${rawg.gameName}`);
         }
     }
 
-    // 3. إذا فشل، جرب Unsplash
+    // 3. جرب أغلفة Wikipedia الرسمية
     if (!result.image) {
-        const unsplash = await searchUnsplash(query);
+        const wiki = await searchPS4Cover(query);
+        if (wiki && wiki.image) {
+            result.image = wiki.image;
+            result.source = 'wikipedia';
+            console.log(`✅ Wikipedia Cover`);
+        }
+    }
+
+    // 4. جرب Unsplash للأغلفة
+    if (!result.image) {
+        const unsplash = await searchUnsplash(`${query} PS4 cover boxart`);
         if (unsplash && unsplash.image) {
             result = { ...unsplash };
-            console.log(`✅ Unsplash`);
+            console.log(`✅ Unsplash Cover`);
         }
     }
 
-    // 4. صورة احتياطية
+    // 5. صورة غلاف PS4 احتياطية
     if (!result.image) {
         result.image = getPlaceholderImage(query, category);
         result.source = 'placeholder';
-        console.log(`⚠️ Placeholder`);
+        console.log(`⚠️ Placeholder PS4 Cover`);
     }
 
-    console.log(`📊 المصدر النهائي: ${result.source}`);
+    console.log(`📊 المصدر النهائي للغلاف: ${result.source}`);
     return result;
 }
 
