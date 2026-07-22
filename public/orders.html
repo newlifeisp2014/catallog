@@ -367,16 +367,21 @@
         }
 
         container.innerHTML = orders.map((order, idx) => {
-          const status = order.status || 'pending';
-          const s = STATUS_MAP[status] || STATUS_MAP.pending;
-          const date = new Date(order.created_at || order.date);
-          const dateStr = date.toLocaleDateString('ar-IQ', { year: 'numeric', month: 'long', day: 'numeric' });
+          const orderId      = order.orderId || order.order_id || order.id;
+          const customerName = order.customerName || order.customer_name || 'زبون';
+          const totalPrice   = parseFloat(order.totalPrice || order.total_price || order.total || 0);
+          const status       = order.status || 'pending';
+          const s            = STATUS_MAP[status] || STATUS_MAP.pending;
+          const dateObj      = new Date(order.createdAt || order.created_at || order.date);
+          const dateStr      = isNaN(dateObj.getTime()) ? 'اليوم' : dateObj.toLocaleDateString('ar-IQ', { year: 'numeric', month: 'long', day: 'numeric' });
+
+          const isPending    = status === 'pending';
 
           return `<div class="order-card" style="animation-delay:${idx * 0.07}s">
             <div class="order-card__header">
               <div>
-                <div class="order-id">${order.order_id || order.id}</div>
-                <div class="order-name">${order.customer_name}</div>
+                <div class="order-id">#${orderId}</div>
+                <div class="order-name">${customerName}</div>
                 <div class="order-date"><i class="far fa-calendar-alt" style="margin-left:4px;"></i>${dateStr}</div>
               </div>
               <span class="badge ${s.cls}">${s.label}</span>
@@ -386,19 +391,30 @@
               ${buildTimeline(status)}
               <ul class="order-games-list">
                 ${(order.games || []).map(g =>
-                  `<li><strong>${g.name_ar || g.name}</strong> — هارد ${g.hardDrive || '1'}</li>`
+                  `<li><strong>${g.name_ar || g.nameAr || g.name}</strong> — هارد ${g.hardDrive || '1'}</li>`
                 ).join('')}
               </ul>
+              ${order.notes ? `<div style="font-size:0.82rem;color:var(--clr-text-muted);margin-top:0.5rem;background:var(--clr-surface-2);padding:0.5rem;border-radius:var(--radius-sm);"><i class="fas fa-sticky-note" style="margin-left:4px;"></i>الملاحظات: ${order.notes}</div>` : ''}
             </div>
 
             <div class="order-card__footer">
               <div class="order-total">
                 <span>المجموع</span>
-                ${Number(order.total_price || order.total).toLocaleString()} دينار
+                ${totalPrice.toLocaleString()} دينار
               </div>
-              <span style="font-size:0.78rem;color:var(--clr-text-muted);">
-                ${(order.games || []).length} لعبة
-              </span>
+              <div style="display:flex;gap:0.4rem;align-items:center;">
+                ${isPending ? `
+                  <button class="btn btn-ghost btn-sm" onclick="editCustomerOrder('${orderId}', '${customerName}', '${(order.notes || '').replace(/'/g, "\\'")}')" style="font-size:0.78rem;color:var(--clr-gold);">
+                    <i class="fas fa-edit"></i> تعديل
+                  </button>
+                  <button class="btn btn-danger btn-sm" onclick="cancelCustomerOrder('${orderId}')" style="font-size:0.78rem;">
+                    <i class="fas fa-times"></i> إلغاء
+                  </button>
+                ` : ''}
+                <span style="font-size:0.78rem;color:var(--clr-text-muted);">
+                  ${(order.games || []).length} لعبة
+                </span>
+              </div>
             </div>
           </div>`;
         }).join('');
@@ -413,6 +429,38 @@
       } finally {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-search"></i> بحث';
+      }
+    }
+
+    async function editCustomerOrder(orderId, currentName, currentNotes) {
+      const newName = prompt('تعديل الاسم الكامل للطلب:', currentName);
+      if (newName === null) return;
+      const newNotes = prompt('تعديل الملاحظات:', currentNotes || '');
+      if (newNotes === null) return;
+
+      try {
+        const res = await fetch(`/api/orders/${orderId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ customerName: newName.trim(), notes: newNotes.trim() })
+        });
+        if (!res.ok) throw new Error();
+        showToast('تم تعديل طلبك بنجاح! ✨');
+        fetchOrders();
+      } catch (e) {
+        showToast('تعذر تعديل الطلب', 'error');
+      }
+    }
+
+    async function cancelCustomerOrder(orderId) {
+      if (!confirm('هل أنت متأكد من إلغاء هذا الطلب؟')) return;
+      try {
+        const res = await fetch(`/api/orders/${orderId}/cancel`, { method: 'POST' });
+        if (!res.ok) throw new Error();
+        showToast('تم إلغاء الطلب بنجاح');
+        fetchOrders();
+      } catch (e) {
+        showToast('تعذر إلغاء الطلب', 'error');
       }
     }
 

@@ -172,20 +172,24 @@ function renderOrders() {
 }
 
 function orderRow(o, showActions) {
-  const id     = o.order_id || o.id;
-  const status = o.status || 'pending';
-  const s      = STATUS_MAP[status] || STATUS_MAP.pending;
-  const date   = new Date(o.created_at || o.date).toLocaleDateString('ar-IQ');
+  const id            = o.orderId || o.order_id || o.id;
+  const customerName  = o.customerName || o.customer_name || 'زبون';
+  const customerPhone = o.customerPhone || o.customer_phone || '';
+  const totalPrice    = parseFloat(o.totalPrice || o.total_price || o.total || 0);
+  const status        = o.status || 'pending';
+  const s             = STATUS_MAP[status] || STATUS_MAP.pending;
+  const dateObj       = new Date(o.createdAt || o.created_at || o.date);
+  const date          = isNaN(dateObj.getTime()) ? 'اليوم' : dateObj.toLocaleDateString('ar-IQ');
 
   return `<tr>
     <td class="td-id">#${id}</td>
-    <td class="td-customer"><strong>${o.customer_name}</strong><small>${o.customer_phone}</small></td>
+    <td class="td-customer"><strong>${customerName}</strong><small>${customerPhone}</small></td>
     <td style="color:var(--clr-text-muted);font-size:0.82rem;">${date}</td>
-    <td class="td-amount">${Number(o.total_price || o.total).toLocaleString()} <span style="font-size:0.72rem;font-weight:500;">دينار</span></td>
+    <td class="td-amount">${totalPrice.toLocaleString()} <span style="font-size:0.72rem;font-weight:500;">دينار</span></td>
     <td><span class="badge ${s.cls}">${s.label}</span></td>
     ${showActions ? `<td class="td-actions">
       <div style="display:flex;gap:0.35rem;align-items:center;">
-        <button class="btn btn-ghost btn-sm" onclick="viewOrder('${id}')" title="عرض التفاصيل">
+        <button class="btn btn-ghost btn-sm" onclick="viewOrder('${id}')" title="عرض التفاصيل والتعديل">
           <i class="fas fa-eye"></i>
         </button>
         <button class="btn btn-sm" style="background:#25D366;color:white;border:none;padding:0.35rem 0.6rem;border-radius:var(--radius-sm);" onclick="sendWhatsAppNotification('${id}')" title="إرسال رسالة واتساب للزبون">
@@ -215,28 +219,37 @@ const STATUS_MAP = {
   cancelled: { label: 'ملغي',         cls: 'badge-cancelled' }
 };
 
-// ── View Order Modal ──────────────────────────────────────────
+// ── View & Edit Order Modal ──────────────────────────────────
 function viewOrder(id) {
-  const o = allOrders.find(x => (x.order_id || x.id) === id);
+  const o = allOrders.find(x => (x.orderId || x.order_id || x.id) === id);
   if (!o) return;
 
-  document.getElementById('orderModalId').textContent = '#' + id;
+  const orderId       = o.orderId || o.order_id || o.id;
+  const customerName  = o.customerName || o.customer_name || 'زبون';
+  const customerPhone = o.customerPhone || o.customer_phone || '';
+  const totalPrice    = parseFloat(o.totalPrice || o.total_price || o.total || 0);
+  const status        = o.status || 'pending';
+  const s             = STATUS_MAP[status] || STATUS_MAP.pending;
 
-  const status = o.status || 'pending';
-  const s      = STATUS_MAP[status] || STATUS_MAP.pending;
+  document.getElementById('orderModalId').textContent = '#' + orderId;
 
   const content = `
     <div class="order-detail-section">
-      <h4>معلومات الزبون</h4>
-      <div style="display:flex;flex-direction:column;gap:0.5rem;font-size:0.9rem;">
-        <div><i class="fas fa-user" style="color:var(--clr-primary-light);width:18px;margin-left:6px;"></i>${o.customer_name}</div>
-        <div><i class="fas fa-phone" style="color:var(--clr-primary-light);width:18px;margin-left:6px;"></i>${o.customer_phone}</div>
-        <div style="margin-top:0.25rem;">الحالة: <span class="badge ${s.cls}" style="margin-right:0.3rem;">${s.label}</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <h4>معلومات الزبون</h4>
+        <button class="btn btn-ghost btn-sm" onclick="editOrderModal('${orderId}')" style="color:var(--clr-gold);font-size:0.8rem;">
+          <i class="fas fa-edit"></i> تعديل بيانات الطلب
+        </button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:0.5rem;font-size:0.9rem;margin-top:0.5rem;">
+        <div><i class="fas fa-user" style="color:var(--clr-primary-light);width:18px;margin-left:6px;"></i><strong>الاسم:</strong> ${customerName}</div>
+        <div><i class="fas fa-phone" style="color:var(--clr-primary-light);width:18px;margin-left:6px;"></i><strong>الهاتف:</strong> ${customerPhone}</div>
+        <div style="margin-top:0.25rem;"><strong>الحالة:</strong> <span class="badge ${s.cls}" style="margin-right:0.3rem;">${s.label}</span></div>
       </div>
     </div>
 
     <div class="order-detail-section">
-      <h4>الألعاب المطلوبة</h4>
+      <h4>الألعاب المطلوبة (${(o.games || []).length})</h4>
       ${(o.games || []).map(g => `
         <div class="order-game-item">
           <i class="fas fa-compact-disc" style="color:var(--clr-primary-light);"></i>
@@ -247,9 +260,9 @@ function viewOrder(id) {
     </div>
 
     <div class="order-detail-section" style="background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.15);">
-      <h4>المجموع</h4>
+      <h4>المجموع الكلي</h4>
       <div style="font-size:1.35rem;font-weight:800;color:var(--clr-gold);">
-        ${Number(o.total_price || o.total).toLocaleString()} دينار
+        ${totalPrice.toLocaleString()} دينار
       </div>
     </div>
 
@@ -264,27 +277,73 @@ function viewOrder(id) {
   // Actions
   let actions = `<button class="btn btn-ghost" onclick="closeOrderModal()">إغلاق</button>`;
   actions += `
-    <button class="btn" style="background:#25D366;color:white;font-weight:700;" onclick="sendWhatsAppNotification('${id}')">
-      <i class="fab fa-whatsapp"></i> واتساب
+    <button class="btn" style="background:#25D366;color:white;font-weight:700;" onclick="sendWhatsAppNotification('${orderId}')">
+      <i class="fab fa-whatsapp"></i> إرسال واتساب
     </button>`;
 
   if (status === 'pending') {
     actions += `
-      <button class="btn btn-primary" style="flex:1;" onclick="updateOrderStatus('${id}','confirmed')">
+      <button class="btn btn-primary" style="flex:1;" onclick="updateOrderStatus('${orderId}','confirmed')">
         <i class="fas fa-check"></i> تأكيد الطلب
       </button>
-      <button class="btn btn-danger" onclick="updateOrderStatus('${id}','cancelled')">
+      <button class="btn btn-danger" onclick="updateOrderStatus('${orderId}','cancelled')">
         <i class="fas fa-times"></i> إلغاء
       </button>`;
   } else if (status === 'confirmed') {
     actions += `
-      <button class="btn btn-primary" style="flex:1;" onclick="updateOrderStatus('${id}','delivered')">
+      <button class="btn btn-primary" style="flex:1;" onclick="updateOrderStatus('${orderId}','delivered')">
         <i class="fas fa-flag-checkered"></i> تم التثبيت والتسليم
       </button>`;
   }
 
   document.getElementById('orderModalActions').innerHTML = actions;
   document.getElementById('orderModal').classList.add('active');
+}
+
+function editOrderModal(id) {
+  const o = allOrders.find(x => (x.orderId || x.order_id || x.id) === id);
+  if (!o) return;
+
+  const currentName  = o.customerName || o.customer_name || '';
+  const currentPhone = o.customerPhone || o.customer_phone || '';
+  const currentNotes = o.notes || '';
+  const currentTotal = parseFloat(o.totalPrice || o.total_price || o.total || 0);
+
+  const newName = prompt('تعديل اسم الزبون:', currentName);
+  if (newName === null) return;
+
+  const newPhone = prompt('تعديل رقم الهاتف:', currentPhone);
+  if (newPhone === null) return;
+
+  const newNotes = prompt('تعديل الملاحظات:', currentNotes);
+  if (newNotes === null) return;
+
+  const newTotalStr = prompt('تعديل المبلغ الكلي (دينار):', currentTotal);
+  if (newTotalStr === null) return;
+  const newTotal = parseFloat(newTotalStr) || currentTotal;
+
+  updateOrderData(id, {
+    customerName:  newName.trim() || currentName,
+    customerPhone: newPhone.trim() || currentPhone,
+    notes:         newNotes.trim(),
+    totalPrice:    newTotal
+  });
+}
+
+async function updateOrderData(id, updateData) {
+  try {
+    const res = await fetch(`/api/orders/${id}`, {
+      method:  'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(updateData)
+    });
+    if (!res.ok) throw new Error();
+    showToast('تم تعديل الطلب بنجاح! ✨');
+    closeOrderModal();
+    loadData();
+  } catch (e) {
+    showToast('فشل تعديل الطلب', 'error');
+  }
 }
 
 function closeOrderModal() {
@@ -326,12 +385,16 @@ function formatWhatsAppPhone(phone) {
 }
 
 function sendWhatsAppNotification(orderId) {
-  const o = allOrders.find(x => (x.order_id || x.id) === orderId);
+  const o = allOrders.find(x => (x.orderId || x.order_id || x.id) === orderId);
   if (!o) return;
 
-  const phone = formatWhatsAppPhone(o.customer_phone);
+  const customerName  = o.customerName || o.customer_name || 'الزبون';
+  const customerPhone = o.customerPhone || o.customer_phone || '';
+  const totalPrice    = parseFloat(o.totalPrice || o.total_price || o.total || 0);
+
+  const phone = formatWhatsAppPhone(customerPhone);
   const gamesList = (o.games || []).map(g => `• ${g.name_ar || g.nameAr || g.name} (هارد ${g.hardDrive || '1'})`).join('\n');
-  const text = `أهلاً بك *${o.customer_name}* 👋\n\nتم إكمال تجهيز وتثبيت ألعابك بنجاح في *مكتبة NewLife* 🎮:\n\n${gamesList}\n\n💰 المجموع: *${Number(o.total_price || o.total).toLocaleString()} دينار*\n\n📌 يمكنك الحضور الآن لاستلام هاردك/جهازك.\nشكراً لتسوقك معنا! ❤️`;
+  const text = `أهلاً بك *${customerName}* 👋\n\nتم إكمال تجهيز وتثبيت ألعابك بنجاح في *مكتبة NewLife* 🎮:\n\n${gamesList}\n\n💰 المجموع: *${totalPrice.toLocaleString()} دينار*\n\n📌 يمكنك الحضور الآن لاستلام هاردك/جهازك.\nشكراً لتسوقك معنا! ❤️`;
 
   const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
   window.open(url, '_blank');
