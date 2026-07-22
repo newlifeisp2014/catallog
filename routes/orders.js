@@ -121,7 +121,7 @@ router.post('/', async (req, res) => {
             await client.query(
                 `INSERT INTO orders (order_id, customer_name, customer_phone, customer_address, notes, games, total_price, discount, status, created_at)
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
-                [orderId, customer_name, customer_phone, customer_address || '', JSON.stringify(games), total_price, appliedDiscount, 'pending']
+                [orderId, customer_name, customer_phone, customer_address || '', notes || '', JSON.stringify(games), total_price, appliedDiscount, 'pending']
             );
 
             await client.query('COMMIT');
