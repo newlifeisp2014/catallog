@@ -36,16 +36,29 @@
       NewLife
     </div>
     <div class="nl-nav__actions">
-      <button class="btn btn-gold btn-sm" id="pwaInstallBtn" onclick="triggerPWAInstall()" style="display:none;" title="تثبيت التطبيق على الشاشة">
-        <i class="fas fa-mobile-alt"></i>
-        <span>تثبيت التطبيق</span>
-      </button>
       <button class="btn btn-ghost btn-sm" onclick="window.location.href='/orders.html'" id="myOrdersBtn">
         <i class="fas fa-receipt"></i>
         <span>طلباتي</span>
       </button>
     </div>
   </nav>
+
+  <!-- ─── PWA Install Banner ─── -->
+  <div id="pwaInstallBanner" style="display:none; position:fixed; bottom:0; left:0; right:0; z-index:9999; padding:0.75rem 1rem; background:linear-gradient(135deg,#1a0a3e,#0f0a28); border-top:1px solid rgba(124,58,237,0.4); backdrop-filter:blur(12px); box-shadow:0 -4px 24px rgba(124,58,237,0.25);">
+    <div style="display:flex; align-items:center; gap:0.75rem; max-width:600px; margin:0 auto;">
+      <img src="/icons/icon-192x192.png" style="width:46px;height:46px;border-radius:12px;flex-shrink:0;" alt="NewLife">
+      <div style="flex:1; min-width:0;">
+        <div style="font-weight:800;font-size:0.95rem;color:#fff;">NewLife PS4 Catalog</div>
+        <div style="font-size:0.78rem;color:rgba(255,255,255,0.55);">ثبّت التطبيق على شاشتك الرئيسية</div>
+      </div>
+      <button onclick="triggerPWAInstall()" style="background:linear-gradient(135deg,#7c3aed,#f59e0b);color:#fff;border:none;border-radius:10px;padding:0.55rem 1rem;font-weight:700;font-size:0.88rem;cursor:pointer;white-space:nowrap;flex-shrink:0;">
+        <i class="fas fa-download" style="margin-left:0.3rem;"></i> تثبيت
+      </button>
+      <button onclick="document.getElementById('pwaInstallBanner').style.display='none'" style="background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.5);border:none;border-radius:8px;padding:0.5rem 0.6rem;cursor:pointer;flex-shrink:0;">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+  </div>
 
   <!-- ─── Hero ─── -->
   <header class="hero container" role="banner">

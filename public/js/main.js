@@ -476,22 +476,23 @@ let deferredPWAInstallPrompt = null;
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
   deferredPWAInstallPrompt = e;
-  const btn = document.getElementById('pwaInstallBtn');
-  if (btn) btn.style.display = 'inline-flex';
+  // Show banner at bottom of screen
+  const banner = document.getElementById('pwaInstallBanner');
+  if (banner) banner.style.display = 'block';
 });
 
 function triggerPWAInstall() {
   if (deferredPWAInstallPrompt) {
     deferredPWAInstallPrompt.prompt();
     deferredPWAInstallPrompt.userChoice.then(choice => {
+      const banner = document.getElementById('pwaInstallBanner');
+      if (banner) banner.style.display = 'none';
       if (choice.outcome === 'accepted') {
-        showToast('تم تثبيت تطبيق المتجر بنجاح! 🎉');
+        showToast('تم تثبيت التطبيق بنجاح! 🎉');
       }
       deferredPWAInstallPrompt = null;
-      const btn = document.getElementById('pwaInstallBtn');
-      if (btn) btn.style.display = 'none';
     });
   } else {
-    alert('📱 لتثبيت التطبيق كبرنامج كامل على جهازك:\n\n• على الأندرويد/الحاسوب: اضغط خيارات المتصفح (⋮) ثم اختر "تثبيت التطبيق (Install App)"\n• على الآيفون: اضغط زر المشاركة (⎕↑) ثم اختر "إضافة إلى الشاشة الرئيسية"');
+    alert('📱 لتثبيت التطبيق كبرنامج:\n\n• أندرويد (Chrome): اضغط النقاط الثلاث ⋮ ثم "تثبيت التطبيق"\n• آيفون (Safari): اضغط زر المشاركة ⬆ ثم "إضافة إلى الشاشة الرئيسية"');
   }
 }
