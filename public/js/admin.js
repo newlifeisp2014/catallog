@@ -1,0 +1,506 @@
+/* ============================================================
+   NewLife — admin.js  (Admin dashboard)
+   ============================================================ */
+
+// ── Auth ──────────────────────────────────────────────────────
+let token = localStorage.getItem('nl_admin_token');
+if (!token) window.location.href = '/login.html';
+
+// ── State ─────────────────────────────────────────────────────
+let allGames     = [];
+let allOrders    = [];
+let allCustomers = [];
+let currentTab   = 'dashboard';
+let orderFilter  = 'all';
+
+// ── Fetch Interceptor (JWT) ───────────────────────────────────
+const _fetch = window.fetch;
+window.fetch = async function(...args) {
+  let [url, cfg] = args;
+  if (typeof url === 'string' && url.startsWith('/api/') && !url.includes('/auth/')) {
+    cfg = cfg || {};
+    cfg.headers = cfg.headers || {};
+    cfg.headers['Authorization'] = 'Bearer ' + token;
+  }
+  const res = await _fetch(url, cfg);
+  if (res.status === 401 || res.status === 403) {
+    localStorage.removeItem('nl_admin_token');
+    window.location.href = '/login.html';
+  }
+  return res;
+};
+
+// ── Tab Switching ─────────────────────────────────────────────
+function switchTab(tabId, el) {
+  // Nav items
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  if (el) el.classList.add('active');
+
+  // Content sections
+  document.querySelectorAll('.tab-content').forEach(s => s.classList.remove('active'));
+  const section = document.getElementById(tabId + 'Tab');
+  if (section) section.classList.add('active');
+
+  // Header
+  const titles = {
+    dashboard: 'لوحة القيادة',
+    orders:    'الطلبات',
+    games:     'إدارة الألعاب',
+    customers: 'الزبائن'
+  };
+  document.getElementById('pageTitle').textContent = titles[tabId] || tabId;
+
+  const addBtn = document.getElementById('addGameBtn');
+  if (addBtn) addBtn.style.display = tabId === 'games' ? 'flex' : 'none';
+
+  currentTab = tabId;
+  loadData();
+  closeSidebar();
+}
+
+// ── Load Data ─────────────────────────────────────────────────
+async function loadData() {
+  try {
+    const promises = [];
+
+    if (['dashboard', 'games'].includes(currentTab)) {
+      promises.push(
+        fetch('/api/games?limit=2000').then(r => r.json()).then(d => {
+          allGames = d.data || [];
+          if (currentTab === 'games') renderGames();
+        })
+      );
+    }
+
+    if (['dashboard', 'orders'].includes(currentTab)) {
+      promises.push(
+        fetch('/api/orders').then(r => r.json()).then(d => {
+          allOrders = d.data || d.orders || d || [];
+          if (currentTab === 'orders') renderOrders();
+        })
+      );
+    }
+
+    if (['dashboard', 'customers'].includes(currentTab)) {
+      promises.push(
+        fetch('/api/customers').then(r => r.json()).then(d => {
+          allCustomers = d.data || d || [];
+          if (currentTab === 'customers') renderCustomers();
+        })
+      );
+    }
+
+    await Promise.all(promises);
+
+    if (currentTab === 'dashboard') {
+      updateDashboardStats();
+      renderRecentOrders();
+    }
+
+  } catch (e) {
+    console.error('[Admin] loadData error', e);
+    showToast('خطأ في جلب البيانات', 'error');
+  }
+}
+
+// ── Dashboard Stats ───────────────────────────────────────────
+function updateDashboardStats() {
+  const pending   = allOrders.filter(o => o.status === 'pending').length;
+  const completed = allOrders.filter(o => o.status === 'delivered').length;
+
+  setEl('statGames',           allGames.length);
+  setEl('statPendingOrders',   pending);
+  setEl('statCompletedOrders', completed);
+  setEl('statCustomers',       allCustomers.length);
+
+  // Pending badge on nav
+  const badge = document.getElementById('pendingBadge');
+  if (badge) {
+    badge.textContent = pending;
+    badge.style.display = pending > 0 ? 'inline-flex' : 'none';
+  }
+}
+
+function setEl(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
+
+// ── Recent Orders (Dashboard) ─────────────────────────────────
+function renderRecentOrders() {
+  const tbody = document.getElementById('recentOrdersBody');
+  if (!tbody) return;
+
+  const recent = [...allOrders]
+    .sort((a, b) => new Date(b.created_at || b.date) - new Date(a.created_at || a.date))
+    .slice(0, 8);
+
+  if (recent.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--clr-text-muted);">لا توجد طلبات حتى الآن</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = recent.map(o => orderRow(o, false)).join('');
+}
+
+// ── Orders Table ──────────────────────────────────────────────
+let ordersSearchQ = '';
+
+function renderOrders() {
+  const tbody = document.getElementById('ordersTableBody');
+  if (!tbody) return;
+
+  const q = ordersSearchQ.toLowerCase();
+  const filtered = allOrders.filter(o => {
+    const matchStatus = orderFilter === 'all' || o.status === orderFilter;
+    const matchSearch = !q ||
+      (o.customer_name || '').toLowerCase().includes(q) ||
+      (o.customer_phone || '').includes(q) ||
+      (o.order_id || o.id || '').toLowerCase().includes(q);
+    return matchStatus && matchSearch;
+  });
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--clr-text-muted);">لا توجد نتائج</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtered
+    .sort((a, b) => new Date(b.created_at || b.date) - new Date(a.created_at || a.date))
+    .map(o => orderRow(o, true))
+    .join('');
+}
+
+function orderRow(o, showActions) {
+  const id     = o.order_id || o.id;
+  const status = o.status || 'pending';
+  const s      = STATUS_MAP[status] || STATUS_MAP.pending;
+  const date   = new Date(o.created_at || o.date).toLocaleDateString('ar-IQ');
+
+  return `<tr>
+    <td class="td-id">#${id}</td>
+    <td class="td-customer"><strong>${o.customer_name}</strong><small>${o.customer_phone}</small></td>
+    <td style="color:var(--clr-text-muted);font-size:0.82rem;">${date}</td>
+    <td class="td-amount">${Number(o.total_price || o.total).toLocaleString()} <span style="font-size:0.72rem;font-weight:500;">دينار</span></td>
+    <td><span class="badge ${s.cls}">${s.label}</span></td>
+    ${showActions ? `<td class="td-actions">
+      <button class="btn btn-ghost btn-sm" onclick="viewOrder('${id}')" title="عرض التفاصيل">
+        <i class="fas fa-eye"></i>
+      </button>
+    </td>` : ''}
+  </tr>`;
+}
+
+function filterOrders(q) {
+  ordersSearchQ = q;
+  renderOrders();
+}
+
+function setOrderFilter(status, el) {
+  orderFilter = status;
+  document.querySelectorAll('[data-status]').forEach(b => b.classList.remove('active'));
+  if (el) el.classList.add('active');
+  renderOrders();
+}
+
+const STATUS_MAP = {
+  pending:   { label: 'قيد الانتظار', cls: 'badge-pending' },
+  confirmed: { label: 'مؤكد',         cls: 'badge-confirmed' },
+  delivered: { label: 'مكتمل',        cls: 'badge-delivered' },
+  cancelled: { label: 'ملغي',         cls: 'badge-cancelled' }
+};
+
+// ── View Order Modal ──────────────────────────────────────────
+function viewOrder(id) {
+  const o = allOrders.find(x => (x.order_id || x.id) === id);
+  if (!o) return;
+
+  document.getElementById('orderModalId').textContent = '#' + id;
+
+  const status = o.status || 'pending';
+  const s      = STATUS_MAP[status] || STATUS_MAP.pending;
+
+  const content = `
+    <div class="order-detail-section">
+      <h4>معلومات الزبون</h4>
+      <div style="display:flex;flex-direction:column;gap:0.5rem;font-size:0.9rem;">
+        <div><i class="fas fa-user" style="color:var(--clr-primary-light);width:18px;margin-left:6px;"></i>${o.customer_name}</div>
+        <div><i class="fas fa-phone" style="color:var(--clr-primary-light);width:18px;margin-left:6px;"></i>${o.customer_phone}</div>
+        <div style="margin-top:0.25rem;">الحالة: <span class="badge ${s.cls}" style="margin-right:0.3rem;">${s.label}</span></div>
+      </div>
+    </div>
+
+    <div class="order-detail-section">
+      <h4>الألعاب المطلوبة</h4>
+      ${(o.games || []).map(g => `
+        <div class="order-game-item">
+          <i class="fas fa-compact-disc" style="color:var(--clr-primary-light);"></i>
+          <span>${g.name_ar || g.nameAr || g.name}</span>
+          <span class="order-game-item__hdd">هارد ${g.hardDrive || '1'}</span>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="order-detail-section" style="background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.15);">
+      <h4>المجموع</h4>
+      <div style="font-size:1.35rem;font-weight:800;color:var(--clr-gold);">
+        ${Number(o.total_price || o.total).toLocaleString()} دينار
+      </div>
+    </div>
+
+    ${o.notes ? `<div class="order-detail-section">
+      <h4>الملاحظات</h4>
+      <p style="font-size:0.88rem;color:var(--clr-text-muted);">${o.notes}</p>
+    </div>` : ''}
+  `;
+
+  document.getElementById('orderDetailsContent').innerHTML = content;
+
+  // Actions
+  let actions = `<button class="btn btn-ghost" onclick="closeOrderModal()">إغلاق</button>`;
+  if (status === 'pending') {
+    actions += `
+      <button class="btn btn-primary" style="flex:1;" onclick="updateOrderStatus('${id}','confirmed')">
+        <i class="fas fa-check"></i> تأكيد الطلب
+      </button>
+      <button class="btn btn-danger" onclick="updateOrderStatus('${id}','cancelled')">
+        <i class="fas fa-times"></i> إلغاء
+      </button>`;
+  } else if (status === 'confirmed') {
+    actions += `
+      <button class="btn btn-primary" style="flex:1;" onclick="updateOrderStatus('${id}','delivered')">
+        <i class="fas fa-flag-checkered"></i> تم التسليم
+      </button>`;
+  }
+
+  document.getElementById('orderModalActions').innerHTML = actions;
+  document.getElementById('orderModal').classList.add('active');
+}
+
+function closeOrderModal() {
+  document.getElementById('orderModal').classList.remove('active');
+}
+
+async function updateOrderStatus(id, status) {
+  try {
+    const res = await fetch(`/api/orders/${id}/status`, {
+      method:  'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ status })
+    });
+    if (!res.ok) throw new Error();
+    showToast('تم تحديث حالة الطلب');
+    closeOrderModal();
+    loadData();
+  } catch {
+    showToast('فشل تحديث الحالة', 'error');
+  }
+}
+
+// ── Games ─────────────────────────────────────────────────────
+function renderGames() {
+  const grid  = document.getElementById('adminGamesGrid');
+  const input = document.getElementById('adminSearchInput');
+  if (!grid) return;
+
+  const q = (input ? input.value : '').toLowerCase();
+  const filtered = allGames.filter(g =>
+    !q ||
+    g.name.toLowerCase().includes(q) ||
+    (g.nameAr || '').toLowerCase().includes(q)
+  );
+
+  if (filtered.length === 0) {
+    grid.innerHTML = `
+      <div class="empty-state" style="grid-column:1/-1;">
+        <div class="empty-state__icon"><i class="fas fa-search"></i></div>
+        <div class="empty-state__title">لا توجد نتائج</div>
+      </div>`;
+    return;
+  }
+
+  grid.innerHTML = filtered.map(game => `
+    <div class="admin-game-card">
+      <img
+        class="admin-game-card__img"
+        src="${game.image || ''}"
+        alt="${game.nameAr || game.name}"
+        onerror="this.src='https://placehold.co/400x140/110e20/7c3aed?text=🎮'"
+        loading="lazy"
+      >
+      <div class="admin-game-card__body">
+        <div class="admin-game-card__name">${game.nameAr || game.name}</div>
+        <div class="admin-game-card__meta">
+          <span><i class="fas fa-hdd" style="font-size:0.65rem;margin-left:3px;"></i>هارد ${game.hardDrive || '1'}</span>
+          <span>${game.size || ''}</span>
+          <span>${game.category || ''}</span>
+        </div>
+        <div class="admin-game-card__price">${Number(game.price).toLocaleString()} دينار</div>
+      </div>
+      <div class="admin-game-card__actions">
+        <button class="btn btn-ghost btn-sm" style="flex:1;" onclick="openEditGameModal('${game.id}')">
+          <i class="fas fa-edit"></i> تعديل
+        </button>
+        <button class="btn btn-danger btn-sm" onclick="deleteGame('${game.id}')">
+          <i class="fas fa-trash-alt"></i>
+        </button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function openGameModal() {
+  document.getElementById('gameForm').reset();
+  document.getElementById('gameEditId').value = '';
+  document.getElementById('gameModalTitle').textContent = 'إضافة لعبة جديدة';
+  document.getElementById('gameModal').classList.add('active');
+}
+
+function closeGameModal() {
+  document.getElementById('gameModal').classList.remove('active');
+}
+
+function openEditGameModal(id) {
+  const game = allGames.find(g => g.id === id);
+  if (!game) return;
+
+  document.getElementById('gameEditId').value  = game.id;
+  document.getElementById('gameName').value    = game.name;
+  document.getElementById('gameNameAr').value  = game.nameAr || '';
+  document.getElementById('gamePrice').value   = game.price;
+  document.getElementById('gameSize').value    = game.size;
+  document.getElementById('gameCategory').value = game.category;
+  document.getElementById('gameHardDrive').value = game.hardDrive || '1';
+  document.getElementById('gameImage').value   = game.image || '';
+
+  document.getElementById('gameModalTitle').textContent = 'تعديل اللعبة';
+  document.getElementById('gameModal').classList.add('active');
+}
+
+async function saveGame(e) {
+  e.preventDefault();
+  const id   = document.getElementById('gameEditId').value;
+  const body = {
+    name:      document.getElementById('gameName').value.trim(),
+    nameAr:    document.getElementById('gameNameAr').value.trim(),
+    price:     parseInt(document.getElementById('gamePrice').value),
+    size:      document.getElementById('gameSize').value.trim(),
+    category:  document.getElementById('gameCategory').value,
+    hardDrive: document.getElementById('gameHardDrive').value,
+    image:     document.getElementById('gameImage').value.trim()
+  };
+
+  const btn  = e.target.querySelector('button[type="submit"]') ||
+               document.querySelector('[form="gameForm"]');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الحفظ...'; }
+
+  try {
+    const res = await fetch(id ? `/api/games/${id}` : '/api/games', {
+      method:  id ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(body)
+    });
+    if (!res.ok) throw new Error();
+    showToast(id ? 'تم تعديل اللعبة' : 'تمت إضافة اللعبة');
+    closeGameModal();
+    loadData();
+  } catch {
+    showToast('حدث خطأ أثناء الحفظ', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> حفظ اللعبة'; }
+  }
+}
+
+async function deleteGame(id) {
+  const game = allGames.find(g => g.id === id);
+  const name = game ? (game.nameAr || game.name) : id;
+  if (!confirm(`هل أنت متأكد من حذف "${name}"؟`)) return;
+
+  try {
+    const res = await fetch(`/api/games/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error();
+    showToast('تم حذف اللعبة');
+    loadData();
+  } catch {
+    showToast('خطأ في الحذف', 'error');
+  }
+}
+
+// ── Customers ─────────────────────────────────────────────────
+function renderCustomers() {
+  const tbody = document.getElementById('customersTableBody');
+  if (!tbody) return;
+
+  if (allCustomers.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:2rem;color:var(--clr-text-muted);">لا يوجد زبائن مسجلون</td></tr>`;
+    return;
+  }
+
+  const sorted = [...allCustomers].sort((a, b) => (b.points || 0) - (a.points || 0));
+
+  tbody.innerHTML = sorted.map((c, i) => {
+    const rankCls = i === 0 ? 'customer-rank--gold' : i === 1 ? 'customer-rank--silver' : i === 2 ? 'customer-rank--bronze' : '';
+    return `<tr>
+      <td><span class="customer-rank ${rankCls}">${i + 1}</span></td>
+      <td style="font-family:var(--font-en);font-size:0.85rem;">${c.phone}</td>
+      <td><strong>${c.name}</strong></td>
+      <td><strong style="color:var(--clr-gold);">${c.points || 0}</strong> <span style="font-size:0.75rem;color:var(--clr-text-muted);">نقطة</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Sidebar (Mobile) ──────────────────────────────────────────
+function toggleSidebar() {
+  const sidebar  = document.getElementById('sidebar');
+  const overlay  = document.getElementById('sidebarOverlay');
+  const isOpen   = sidebar.classList.contains('open');
+  sidebar.classList.toggle('open', !isOpen);
+  if (overlay) overlay.style.display = isOpen ? 'none' : 'block';
+}
+
+function closeSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebarOverlay');
+  sidebar.classList.remove('open');
+  if (overlay) overlay.style.display = 'none';
+}
+
+// ── Modal Click Outside ───────────────────────────────────────
+function handleModalClick(e, modalId) {
+  if (e.target.id === modalId) {
+    document.getElementById(modalId).classList.remove('active');
+  }
+}
+
+// ── Logout ────────────────────────────────────────────────────
+function logout() {
+  if (!confirm('هل تريد تسجيل الخروج؟')) return;
+  localStorage.removeItem('nl_admin_token');
+  window.location.href = '/login.html';
+}
+
+// ── Toast ─────────────────────────────────────────────────────
+function showToast(msg, type = 'success') {
+  const container = document.getElementById('toastContainer');
+  if (!container) return;
+
+  const toast = document.createElement('div');
+  toast.className = `toast toast--${type}`;
+  const icons = { success: 'fa-check-circle', error: 'fa-exclamation-circle', info: 'fa-info-circle' };
+  toast.innerHTML = `<i class="fas ${icons[type] || 'fa-check-circle'}"></i> ${msg}`;
+  container.appendChild(toast);
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => toast.classList.add('show'));
+  });
+
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 400);
+  }, 3200);
+}
+
+// ── Init ──────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  switchTab('dashboard', document.getElementById('nav-dashboard'));
+});

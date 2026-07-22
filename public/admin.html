@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>لوحة التحكم — NewLife</title>
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#7c3aed">
+
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.json">
+
+  <!-- Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body class="admin-layout">
+
+  <!-- ═══════════════════════════════════════
+       SIDEBAR
+  ════════════════════════════════════════ -->
+  <aside class="sidebar" id="sidebar" role="navigation" aria-label="القائمة الجانبية">
+    <div class="sidebar-inner">
+
+      <!-- Logo -->
+      <div class="sidebar__logo">
+        <div class="sidebar__logo-icon" aria-hidden="true">
+          <i class="fas fa-gamepad"></i>
+        </div>
+        <div>
+          <div class="sidebar__logo-text">NewLife</div>
+          <span class="sidebar__logo-sub">لوحة التحكم</span>
+        </div>
+      </div>
+
+      <!-- Navigation -->
+      <nav class="sidebar__nav">
+        <span class="nav-section-label">الرئيسية</span>
+
+        <a class="nav-item active" onclick="switchTab('dashboard', this)" id="nav-dashboard">
+          <span class="nav-item__icon"><i class="fas fa-chart-line"></i></span>
+          لوحة القيادة
+        </a>
+
+        <span class="nav-section-label">الإدارة</span>
+
+        <a class="nav-item" onclick="switchTab('orders', this)" id="nav-orders">
+          <span class="nav-item__icon"><i class="fas fa-receipt"></i></span>
+          الطلبات
+          <span class="nav-item__badge" id="pendingBadge" style="display:none;"></span>
+        </a>
+
+        <a class="nav-item" onclick="switchTab('games', this)" id="nav-games">
+          <span class="nav-item__icon"><i class="fas fa-compact-disc"></i></span>
+          إدارة الألعاب
+        </a>
+
+        <a class="nav-item" onclick="switchTab('customers', this)" id="nav-customers">
+          <span class="nav-item__icon"><i class="fas fa-users"></i></span>
+          الزبائن
+        </a>
+
+        <span class="nav-section-label">أدوات</span>
+
+        <a class="nav-item" onclick="window.location.href='/qr.html'" id="nav-qr">
+          <span class="nav-item__icon"><i class="fas fa-qrcode"></i></span>
+          الباركود والشبكة
+        </a>
+
+        <a class="nav-item" onclick="window.open('/', '_blank')" id="nav-store">
+          <span class="nav-item__icon"><i class="fas fa-store"></i></span>
+          المتجر
+        </a>
+      </nav>
+
+      <!-- Footer -->
+      <div class="sidebar__footer">
+        <a class="nav-item nav-item--danger" onclick="logout()">
+          <span class="nav-item__icon" style="background:var(--clr-danger-bg);color:var(--clr-danger);">
+            <i class="fas fa-sign-out-alt"></i>
+          </span>
+          تسجيل الخروج
+        </a>
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- ═══════════════════════════════════════
+       MAIN CONTENT
+  ════════════════════════════════════════ -->
+  <div class="admin-main">
+
+    <!-- Admin Header -->
+    <header class="admin-header">
+      <button class="admin-header__menu" id="mobileMenuBtn" onclick="toggleSidebar()" aria-label="فتح القائمة">
+        <i class="fas fa-bars"></i>
+      </button>
+      <h1 class="admin-header__title" id="pageTitle">لوحة القيادة</h1>
+      <div class="admin-header__actions" id="headerActions">
+        <button class="btn btn-primary btn-sm" onclick="openGameModal()" id="addGameBtn" style="display:none;">
+          <i class="fas fa-plus"></i> لعبة جديدة
+        </button>
+      </div>
+    </header>
+
+    <!-- ─── Admin Content ─── -->
+    <div class="admin-content">
+
+      <!-- ══ DASHBOARD TAB ══ -->
+      <section id="dashboardTab" class="tab-content active" aria-label="لوحة القيادة">
+
+        <!-- Stats -->
+        <div class="stats-grid">
+          <div class="stat-card stat-card--primary">
+            <div class="stat-icon stat-icon--primary" aria-hidden="true"><i class="fas fa-gamepad"></i></div>
+            <div class="stat-info">
+              <div class="stat-label">إجمالي الألعاب</div>
+              <div class="stat-value" id="statGames">—</div>
+            </div>
+          </div>
+          <div class="stat-card stat-card--warning">
+            <div class="stat-icon stat-icon--warning" aria-hidden="true"><i class="fas fa-clock"></i></div>
+            <div class="stat-info">
+              <div class="stat-label">قيد الانتظار</div>
+              <div class="stat-value" id="statPendingOrders">—</div>
+            </div>
+          </div>
+          <div class="stat-card stat-card--success">
+            <div class="stat-icon stat-icon--success" aria-hidden="true"><i class="fas fa-check-circle"></i></div>
+            <div class="stat-info">
+              <div class="stat-label">مكتملة</div>
+              <div class="stat-value" id="statCompletedOrders">—</div>
+            </div>
+          </div>
+          <div class="stat-card stat-card--info">
+            <div class="stat-icon stat-icon--info" aria-hidden="true"><i class="fas fa-users"></i></div>
+            <div class="stat-info">
+              <div class="stat-label">الزبائن</div>
+              <div class="stat-value" id="statCustomers">—</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Orders Preview -->
+        <div class="section-header">
+          <h2 class="section-title">آخر الطلبات</h2>
+          <button class="btn btn-ghost btn-sm" onclick="switchTab('orders', document.getElementById('nav-orders'))">
+            عرض الكل <i class="fas fa-arrow-left" style="margin-right:0.25rem;"></i>
+          </button>
+        </div>
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>رقم الطلب</th>
+                <th>الزبون</th>
+                <th>التاريخ</th>
+                <th>المبلغ</th>
+                <th>الحالة</th>
+              </tr>
+            </thead>
+            <tbody id="recentOrdersBody">
+              <tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--clr-text-muted);">جاري التحميل...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ══ ORDERS TAB ══ -->
+      <section id="ordersTab" class="tab-content" aria-label="الطلبات">
+        <div class="section-header">
+          <h2 class="section-title">جميع الطلبات</h2>
+          <div class="admin-search">
+            <i class="fas fa-search admin-search__icon"></i>
+            <input type="search" id="ordersSearch" placeholder="ابحث بالاسم أو الرقم..." oninput="filterOrders(this.value)">
+          </div>
+        </div>
+
+        <!-- Filter Tabs -->
+        <div style="display:flex;gap:0.5rem;margin-bottom:1.25rem;flex-wrap:wrap;">
+          <button class="filter-tab active" data-status="all" onclick="setOrderFilter('all',this)">الكل</button>
+          <button class="filter-tab" data-status="pending" onclick="setOrderFilter('pending',this)">قيد الانتظار</button>
+          <button class="filter-tab" data-status="confirmed" onclick="setOrderFilter('confirmed',this)">مؤكد</button>
+          <button class="filter-tab" data-status="delivered" onclick="setOrderFilter('delivered',this)">مكتمل</button>
+          <button class="filter-tab" data-status="cancelled" onclick="setOrderFilter('cancelled',this)">ملغي</button>
+        </div>
+
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>رقم الطلب</th>
+                <th>الزبون</th>
+                <th>التاريخ</th>
+                <th>المبلغ</th>
+                <th>الحالة</th>
+                <th>إجراءات</th>
+              </tr>
+            </thead>
+            <tbody id="ordersTableBody">
+              <tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--clr-text-muted);">جاري التحميل...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ══ GAMES TAB ══ -->
+      <section id="gamesTab" class="tab-content" aria-label="إدارة الألعاب">
+        <div class="section-header">
+          <h2 class="section-title">قائمة الألعاب</h2>
+          <div class="admin-search">
+            <i class="fas fa-search admin-search__icon"></i>
+            <input type="search" id="adminSearchInput" placeholder="ابحث عن لعبة..." oninput="renderGames()">
+          </div>
+        </div>
+        <div class="admin-games-grid" id="adminGamesGrid">
+          <!-- Games loaded via JS -->
+        </div>
+      </section>
+
+      <!-- ══ CUSTOMERS TAB ══ -->
+      <section id="customersTab" class="tab-content" aria-label="الزبائن">
+        <div class="section-header">
+          <h2 class="section-title">قائمة الزبائن</h2>
+        </div>
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>رقم الهاتف</th>
+                <th>الاسم</th>
+                <th>النقاط</th>
+              </tr>
+            </thead>
+            <tbody id="customersTableBody">
+              <tr><td colspan="4" style="text-align:center;padding:2rem;color:var(--clr-text-muted);">جاري التحميل...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+    </div> <!-- /admin-content -->
+  </div> <!-- /admin-main -->
+
+  <!-- ═══════════════════════════════════════
+       GAME MODAL
+  ════════════════════════════════════════ -->
+  <div class="modal-overlay" id="gameModal" role="dialog" aria-modal="true" aria-labelledby="gameModalTitle" onclick="handleModalClick(event,'gameModal')">
+    <div class="modal modal--wide">
+      <div class="modal__header">
+        <h2 class="modal__title" id="gameModalTitle">إضافة لعبة جديدة</h2>
+        <button class="modal__close" onclick="closeGameModal()" aria-label="إغلاق"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal__body">
+        <form id="gameForm" onsubmit="saveGame(event)" novalidate>
+          <input type="hidden" id="gameEditId">
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="gameName">الاسم بالإنجليزي *</label>
+              <input type="text" id="gameName" class="form-input" placeholder="مثال: God of War" required>
+            </div>
+            <div class="form-group">
+              <label for="gameNameAr">الاسم بالعربي *</label>
+              <input type="text" id="gameNameAr" class="form-input" placeholder="مثال: جود اوف وور" required>
+            </div>
+
+            <div class="form-group">
+              <label for="gamePrice">السعر (دينار) *</label>
+              <input type="number" id="gamePrice" class="form-input" placeholder="15000" min="0" required>
+            </div>
+            <div class="form-group">
+              <label for="gameSize">الحجم *</label>
+              <input type="text" id="gameSize" class="form-input" placeholder="50 GB" required>
+            </div>
+
+            <div class="form-group">
+              <label for="gameCategory">التصنيف *</label>
+              <select id="gameCategory" class="form-input" required>
+                <option value="Action">أكشن</option>
+                <option value="Adventure">مغامرة</option>
+                <option value="Sports">رياضة</option>
+                <option value="RPG">آر بي جي</option>
+                <option value="Fighting">قتال</option>
+                <option value="Shooter">تصويب</option>
+                <option value="Racing">سباق</option>
+                <option value="Horror">رعب</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="gameHardDrive">رقم الهارد *</label>
+              <select id="gameHardDrive" class="form-input" required>
+                <option value="1">هارد 1</option>
+                <option value="2">هارد 2</option>
+                <option value="3">هارد 3</option>
+                <option value="4">هارد 4</option>
+                <option value="5">هارد 5</option>
+                <option value="6">هارد 6</option>
+              </select>
+            </div>
+
+            <div class="form-group form-group--span2">
+              <label for="gameImage">رابط الصورة</label>
+              <input type="url" id="gameImage" class="form-input" placeholder="اتركه فارغاً وسيقوم النظام بجلبه تلقائياً">
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal__footer">
+        <button type="button" class="btn btn-ghost" onclick="closeGameModal()">إلغاء</button>
+        <button type="submit" form="gameForm" class="btn btn-primary" style="flex:1;">
+          <i class="fas fa-save"></i> حفظ اللعبة
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       ORDER DETAILS MODAL
+  ════════════════════════════════════════ -->
+  <div class="modal-overlay" id="orderModal" role="dialog" aria-modal="true" onclick="handleModalClick(event,'orderModal')">
+    <div class="modal">
+      <div class="modal__header">
+        <h2 class="modal__title">
+          تفاصيل الطلب
+          <span id="orderModalId" style="font-size:0.85rem;font-weight:500;color:var(--clr-text-muted);margin-right:0.5rem;"></span>
+        </h2>
+        <button class="modal__close" onclick="closeOrderModal()" aria-label="إغلاق"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal__body" id="orderDetailsContent">
+        <!-- Loaded via JS -->
+      </div>
+      <div class="modal__footer" id="orderModalActions">
+        <!-- Actions via JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Sidebar Overlay (mobile) -->
+  <div id="sidebarOverlay" onclick="closeSidebar()"
+    style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99;backdrop-filter:blur(2px);">
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="/js/admin.js"></script>
+</body>
+</html>

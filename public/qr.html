@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>الباركود والشبكة — NewLife</title>
+  <meta name="robots" content="noindex">
+
+  <!-- Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/main.css">
+
+  <style>
+    body { min-height: 100dvh; }
+
+    .qr-page { max-width: 900px; margin: 0 auto; padding: var(--space-xl) var(--space-xl) var(--space-3xl); }
+
+    .page-header {
+      margin-bottom: var(--space-2xl);
+      animation: fadeUp 0.4s var(--ease-out) both;
+    }
+
+    .page-header h1 {
+      font-size: 1.6rem;
+      font-weight: 900;
+      margin-bottom: 0.3rem;
+    }
+
+    .page-header p { color: var(--clr-text-muted); font-size: 0.9rem; }
+
+    /* QR Grid */
+    .qr-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: var(--space-lg);
+    }
+
+    /* QR Card */
+    .qr-card {
+      background: var(--clr-surface);
+      border: 1px solid var(--clr-border-light);
+      border-radius: var(--radius-xl);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      animation: fadeUp 0.4s var(--ease-out) both;
+      transition: border-color var(--dur-normal), box-shadow var(--dur-normal);
+    }
+
+    .qr-card:hover {
+      border-color: var(--clr-border);
+      box-shadow: var(--shadow-md);
+    }
+
+    .qr-card__header {
+      padding: var(--space-lg) var(--space-xl);
+      border-bottom: 1px solid var(--clr-border-light);
+      background: var(--clr-surface-2);
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+    }
+
+    .qr-card__header-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+    }
+
+    .qr-card__header-icon--purple { background: rgba(124,58,237,0.15); color: var(--clr-primary-light); }
+    .qr-card__header-icon--teal   { background: rgba(20,184,166,0.12); color: var(--clr-teal); }
+
+    .qr-card__header-title { font-size: 1rem; font-weight: 700; }
+    .qr-card__header-sub   { font-size: 0.78rem; color: var(--clr-text-muted); }
+
+    .qr-card__body {
+      padding: var(--space-xl);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-lg);
+    }
+
+    /* QR Code Box */
+    .qr-box {
+      background: white;
+      padding: 1.25rem;
+      border-radius: var(--radius-lg);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: var(--shadow-md);
+    }
+
+    .qr-placeholder {
+      width: 200px;
+      height: 200px;
+      background: #f0f0f0;
+      border-radius: var(--radius-md);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #aaa;
+      font-size: 0.85rem;
+      gap: 0.5rem;
+    }
+
+    .qr-placeholder i { font-size: 2rem; }
+
+    /* WiFi Form */
+    .wifi-form {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-sm);
+    }
+
+    .wifi-form .form-input { width: 100%; }
+
+    /* URL Display */
+    .url-display {
+      background: var(--clr-surface-2);
+      border: 1px solid var(--clr-border-light);
+      border-radius: var(--radius-md);
+      padding: 0.65rem 1rem;
+      font-size: 0.82rem;
+      color: var(--clr-text-muted);
+      word-break: break-all;
+      text-align: center;
+      font-family: var(--font-en);
+      width: 100%;
+    }
+
+    /* Download btn */
+    .download-btn {
+      width: 100%;
+    }
+
+    /* Print hint */
+    .print-hint {
+      font-size: 0.75rem;
+      color: var(--clr-text-faint);
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+    }
+
+    @media (max-width: 480px) {
+      .qr-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navigation -->
+  <nav class="nl-nav" role="navigation">
+    <div class="nl-nav__brand">
+      <div class="nl-nav__brand-icon" aria-hidden="true">
+        <i class="fas fa-qrcode"></i>
+      </div>
+      الباركود
+    </div>
+    <div class="nl-nav__actions">
+      <button class="btn btn-ghost btn-sm" onclick="window.location.href='/admin.html'">
+        <i class="fas fa-arrow-right"></i>
+        لوحة التحكم
+      </button>
+    </div>
+  </nav>
+
+  <main role="main">
+    <div class="qr-page">
+
+      <!-- Header -->
+      <div class="page-header">
+        <h1>
+          <i class="fas fa-qrcode" style="color:var(--clr-primary-light);margin-left:0.5rem;font-size:1.2rem;"></i>
+          الباركود والشبكة
+        </h1>
+        <p>اطبع هذه الباركودات وضعها في المحل ليمسحها الزبائن</p>
+      </div>
+
+      <div class="qr-grid">
+
+        <!-- ── Catalog QR Card ── -->
+        <div class="qr-card" style="animation-delay:0.05s">
+          <div class="qr-card__header">
+            <div class="qr-card__header-icon qr-card__header-icon--purple">
+              <i class="fas fa-gamepad"></i>
+            </div>
+            <div>
+              <div class="qr-card__header-title">باركود الكتالوك</div>
+              <div class="qr-card__header-sub">فتح قائمة الألعاب والطلب المباشر</div>
+            </div>
+          </div>
+          <div class="qr-card__body">
+            <div class="qr-box" id="catalogQrCode">
+              <div class="qr-placeholder"><i class="fas fa-spinner fa-spin"></i><span>جاري التوليد...</span></div>
+            </div>
+            <div class="url-display" id="catalogUrl">—</div>
+            <button class="btn btn-primary download-btn" onclick="downloadQR('catalogQrCode','catalog-newlife.png')" id="downloadCatalogBtn">
+              <i class="fas fa-download"></i> تحميل الباركود
+            </button>
+            <p class="print-hint"><i class="fas fa-print"></i> مناسب للطباعة بأي حجم</p>
+          </div>
+        </div>
+
+        <!-- ── WiFi QR Card ── -->
+        <div class="qr-card" style="animation-delay:0.1s">
+          <div class="qr-card__header">
+            <div class="qr-card__header-icon qr-card__header-icon--teal">
+              <i class="fas fa-wifi"></i>
+            </div>
+            <div>
+              <div class="qr-card__header-title">باركود شبكة Wi-Fi</div>
+              <div class="qr-card__header-sub">يتصل الزبون بالشبكة تلقائياً عند المسح</div>
+            </div>
+          </div>
+          <div class="qr-card__body">
+            <div class="wifi-form">
+              <div class="form-field">
+                <label for="wifiName" style="font-size:0.8rem;color:var(--clr-text-muted);font-weight:600;">اسم الشبكة (SSID)</label>
+                <input type="text" id="wifiName" class="form-input" placeholder="MyNetwork">
+              </div>
+              <div class="form-field">
+                <label for="wifiPass" style="font-size:0.8rem;color:var(--clr-text-muted);font-weight:600;">كلمة المرور</label>
+                <input type="password" id="wifiPass" class="form-input" placeholder="••••••••">
+              </div>
+              <div class="form-field" style="margin-top:0.25rem;">
+                <label style="font-size:0.8rem;color:var(--clr-text-muted);font-weight:600;">نوع الأمان</label>
+                <select id="wifiSec" class="form-input">
+                  <option value="WPA">WPA/WPA2</option>
+                  <option value="WEP">WEP</option>
+                  <option value="">بدون كلمة مرور</option>
+                </select>
+              </div>
+              <button class="btn btn-primary" onclick="generateWifiQR()" style="width:100%;">
+                <i class="fas fa-bolt"></i> توليد الباركود
+              </button>
+            </div>
+
+            <div class="qr-box" id="wifiQrCode" style="display:none;"></div>
+
+            <button class="btn btn-ghost download-btn" onclick="downloadQR('wifiQrCode','wifi-qr.png')" id="downloadWifiBtn" style="display:none;">
+              <i class="fas fa-download"></i> تحميل الباركود
+            </button>
+            <p class="print-hint"><i class="fas fa-info-circle"></i> اتصال تلقائي عند المسح</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // Generate Catalog QR on load
+    window.addEventListener('load', () => {
+      const url = window.location.origin;
+      document.getElementById('catalogUrl').textContent = url;
+      document.getElementById('catalogQrCode').innerHTML = '';
+      new QRCode(document.getElementById('catalogQrCode'), {
+        text: url,
+        width: 200,
+        height: 200,
+        colorDark: '#07050f',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.H
+      });
+    });
+
+    function generateWifiQR() {
+      const ssid = document.getElementById('wifiName').value.trim();
+      const pass = document.getElementById('wifiPass').value;
+      const sec  = document.getElementById('wifiSec').value;
+
+      if (!ssid) {
+        alert('يرجى كتابة اسم الشبكة (SSID)');
+        return;
+      }
+
+      const wifiStr = `WIFI:T:${sec};S:${ssid};P:${pass};;`;
+      const box = document.getElementById('wifiQrCode');
+      box.innerHTML = '';
+      box.style.display = 'inline-flex';
+
+      new QRCode(box, {
+        text: wifiStr,
+        width: 200,
+        height: 200,
+        colorDark: '#07050f',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.H
+      });
+
+      document.getElementById('downloadWifiBtn').style.display = 'block';
+    }
+
+    function downloadQR(elementId, filename) {
+      const el = document.getElementById(elementId);
+      const canvas = el.querySelector('canvas');
+      if (!canvas) { alert('الباركود غير جاهز بعد'); return; }
+      const link = document.createElement('a');
+      link.download = filename;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    }
+  </script>
+</body>
+</html>

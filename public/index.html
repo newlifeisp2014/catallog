@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>NewLife — مكتبة الألعاب</title>
+  <meta name="description" content="تصفح واطلب أحدث ألعاب البلايستيشن بضغطة زر — NewLife">
+  <meta name="theme-color" content="#7c3aed">
+
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
+
+  <!-- Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+
+  <!-- ─── Navigation ─── -->
+  <nav class="nl-nav" role="navigation" aria-label="التنقل الرئيسي">
+    <div class="nl-nav__brand" onclick="window.location.href='/'">
+      <div class="nl-nav__brand-icon" aria-hidden="true">
+        <i class="fas fa-gamepad"></i>
+      </div>
+      NewLife
+    </div>
+    <div class="nl-nav__actions">
+      <button class="btn btn-ghost btn-sm" onclick="window.location.href='/orders.html'" id="myOrdersBtn">
+        <i class="fas fa-receipt"></i>
+        <span>طلباتي</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ─── Hero ─── -->
+  <header class="hero container" role="banner">
+    <div class="hero__eyebrow animate-fade-up" style="animation-delay:0.05s">
+      <i class="fas fa-bolt"></i>
+      بلايستيشن 4 | أحدث الإصدارات
+    </div>
+    <h1 class="hero__title animate-fade-up" style="animation-delay:0.1s">
+      اكتشف <span class="highlight">عالمك الجديد</span>
+    </h1>
+    <p class="hero__subtitle animate-fade-up" style="animation-delay:0.15s">
+      تصفح مئات الألعاب واطلب مباشرة من المحل بأفضل الأسعار
+    </p>
+
+    <!-- Search -->
+    <div class="search-bar animate-fade-up" style="animation-delay:0.2s" role="search">
+      <i class="fas fa-search search-bar__icon" aria-hidden="true"></i>
+      <input
+        type="search"
+        class="search-bar__input"
+        id="searchInput"
+        placeholder="ابحث عن لعبة... (مثال: فيفا، قراند)"
+        autocomplete="off"
+        aria-label="البحث عن ألعاب"
+      >
+    </div>
+
+    <!-- Category Filters -->
+    <div class="filter-tabs animate-fade-up" id="filterTabs" style="animation-delay:0.25s" role="group" aria-label="تصفية حسب التصنيف">
+      <button class="filter-tab active" data-cat="all" id="filter-all">الكل</button>
+      <button class="filter-tab" data-cat="Action" id="filter-Action">أكشن</button>
+      <button class="filter-tab" data-cat="Sports" id="filter-Sports">رياضة</button>
+      <button class="filter-tab" data-cat="Adventure" id="filter-Adventure">مغامرة</button>
+      <button class="filter-tab" data-cat="RPG" id="filter-RPG">آر بي جي</button>
+      <button class="filter-tab" data-cat="Shooter" id="filter-Shooter">تصويب</button>
+      <button class="filter-tab" data-cat="Fighting" id="filter-Fighting">قتال</button>
+      <button class="filter-tab" data-cat="Racing" id="filter-Racing">سباق</button>
+      <button class="filter-tab" data-cat="Horror" id="filter-Horror">رعب</button>
+    </div>
+  </header>
+
+  <!-- ─── Games Grid ─── -->
+  <main class="container" id="mainContent" role="main">
+    <div class="games-grid" id="gamesGrid" role="list" aria-label="قائمة الألعاب">
+      <!-- Games rendered via JS -->
+    </div>
+  </main>
+
+  <!-- ─── Floating Cart Button ─── -->
+  <div class="float-cart" aria-live="polite">
+    <button class="float-cart__btn" onclick="openCart()" id="floatCartBtn" aria-label="فتح سلة المشتريات">
+      <i class="fas fa-shopping-basket"></i>
+      <span class="float-cart__badge" id="cartBadge" aria-hidden="true">0</span>
+    </button>
+  </div>
+
+  <!-- ─── Cart Drawer ─── -->
+  <div class="cart-overlay" id="cartOverlay" role="dialog" aria-modal="true" aria-label="سلة المشتريات" onclick="handleOverlayClick(event)">
+    <div class="cart-drawer">
+      <div class="cart-drawer__header">
+        <h2 class="cart-drawer__title">
+          <i class="fas fa-shopping-basket" style="color:var(--clr-primary-light); margin-left:0.5rem;"></i>
+          سلة المشتريات
+        </h2>
+        <button class="cart-drawer__close" onclick="closeCart()" aria-label="إغلاق السلة">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <div class="cart-drawer__body" id="cartItems">
+        <!-- Items rendered via JS -->
+      </div>
+
+      <div class="cart-drawer__footer">
+        <div class="cart-total">
+          <span class="cart-total__label">المجموع الكلي</span>
+          <span class="cart-total__amount" id="cartTotal">0 دينار</span>
+        </div>
+
+        <form class="checkout-form" id="checkoutForm" onsubmit="submitOrder(event)" novalidate>
+          <div class="form-field">
+            <label for="customerName">الاسم الكامل</label>
+            <input type="text" id="customerName" class="form-input" placeholder="ادخل اسمك الكامل" required autocomplete="name">
+          </div>
+          <div class="form-field">
+            <label for="customerPhone">رقم الهاتف</label>
+            <input type="tel" id="customerPhone" class="form-input" placeholder="07xxxxxxxxx" required autocomplete="tel">
+          </div>
+          <button type="submit" class="btn btn-gold btn-full btn-lg" id="checkoutBtn">
+            <i class="fas fa-paper-plane"></i>
+            إرسال الطلب
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Game Details Modal ─── -->
+  <div class="cart-overlay" id="gameDetailOverlay" role="dialog" aria-modal="true" aria-label="تفاصيل اللعبة" onclick="handleGameDetailOverlayClick(event)">
+    <div class="cart-drawer game-detail-drawer" style="max-width: 600px; width: 100%; border-radius: var(--radius-xl); height: auto; max-height: 90vh; overflow-y: auto;">
+      <div class="cart-drawer__header">
+        <h2 class="cart-drawer__title" id="gameDetailTitle">
+          <i class="fas fa-compact-disc" style="color:var(--clr-primary-light); margin-left:0.5rem;"></i>
+          تفاصيل اللعبة
+        </h2>
+        <button class="cart-drawer__close" onclick="closeGameDetailModal()" aria-label="إغلاق">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <div class="cart-drawer__body" id="gameDetailBody" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem;">
+        <!-- Filled via JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Toast Container ─── -->
+  <div class="toast-container" id="toastContainer" aria-live="assertive"></div>
+
+  <!-- ─── Scripts ─── -->
+  <script src="/js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>طلباتي — NewLife</title>
+  <meta name="description" content="تتبع حالة طلباتك من متجر NewLife">
+
+  <!-- Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/main.css">
+
+  <style>
+    /* ─── Orders Page Specific ─── */
+    .orders-page { max-width: 680px; margin: 0 auto; padding: var(--space-xl) var(--space-xl) var(--space-3xl); }
+
+    /* Search Card */
+    .search-card {
+      background: var(--clr-glass-bg);
+      border: 1px solid var(--clr-border);
+      border-radius: var(--radius-xl);
+      padding: var(--space-xl);
+      backdrop-filter: blur(16px);
+      margin-bottom: var(--space-xl);
+      animation: fadeUp 0.4s var(--ease-out) both;
+    }
+
+    .search-card__title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin-bottom: var(--space-sm);
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+    }
+
+    .search-card__title i { color: var(--clr-primary-light); }
+
+    .search-card__subtitle {
+      font-size: 0.85rem;
+      color: var(--clr-text-muted);
+      margin-bottom: var(--space-md);
+    }
+
+    .search-row {
+      display: flex;
+      gap: var(--space-sm);
+    }
+
+    .search-row .form-input { flex: 1; }
+
+    /* Order Cards */
+    .order-card {
+      background: var(--clr-surface);
+      border: 1px solid var(--clr-border-light);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      margin-bottom: var(--space-md);
+      animation: fadeUp 0.4s var(--ease-out) both;
+      transition: border-color var(--dur-normal), box-shadow var(--dur-normal);
+    }
+
+    .order-card:hover {
+      border-color: var(--clr-border);
+      box-shadow: var(--shadow-md);
+    }
+
+    .order-card__header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      padding: var(--space-md) var(--space-lg);
+      border-bottom: 1px solid var(--clr-border-light);
+      gap: var(--space-sm);
+    }
+
+    .order-id {
+      font-family: var(--font-en);
+      font-size: 0.78rem;
+      color: var(--clr-text-muted);
+      margin-bottom: 0.25rem;
+      font-weight: 500;
+    }
+
+    .order-name {
+      font-weight: 700;
+      font-size: 0.95rem;
+    }
+
+    .order-date {
+      font-size: 0.78rem;
+      color: var(--clr-text-muted);
+      margin-top: 0.2rem;
+    }
+
+    .order-card__body {
+      padding: var(--space-md) var(--space-lg);
+    }
+
+    .order-games-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      margin-bottom: var(--space-md);
+    }
+
+    .order-games-list li {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      font-size: 0.88rem;
+      color: var(--clr-text-muted);
+    }
+
+    .order-games-list li::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--clr-primary-light);
+      flex-shrink: 0;
+    }
+
+    .order-games-list li strong { color: var(--clr-text); }
+
+    .order-card__footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-sm) var(--space-lg);
+      background: var(--clr-surface-2);
+      border-top: 1px solid var(--clr-border-light);
+    }
+
+    .order-total {
+      font-size: 0.95rem;
+      font-weight: 800;
+      color: var(--clr-gold);
+    }
+
+    .order-total span {
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--clr-text-muted);
+      display: block;
+    }
+
+    /* Timeline status indicator */
+    .order-timeline {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: var(--space-sm) 0;
+    }
+
+    .timeline-step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.2rem;
+      flex: 1;
+      position: relative;
+    }
+
+    .timeline-step:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      top: 10px;
+      left: 0;
+      right: -50%;
+      height: 2px;
+      background: var(--clr-surface-3);
+      z-index: 0;
+    }
+
+    .timeline-step.done:not(:last-child)::after {
+      background: var(--clr-primary);
+    }
+
+    .timeline-dot {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--clr-surface-3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.55rem;
+      color: transparent;
+      position: relative;
+      z-index: 1;
+      transition: all var(--dur-normal);
+    }
+
+    .timeline-step.done .timeline-dot {
+      background: var(--clr-primary);
+      color: white;
+    }
+
+    .timeline-step.current .timeline-dot {
+      background: var(--clr-gold);
+      color: #07050f;
+      box-shadow: 0 0 12px var(--clr-gold-glow);
+    }
+
+    .timeline-label {
+      font-size: 0.62rem;
+      color: var(--clr-text-faint);
+      text-align: center;
+    }
+
+    .timeline-step.done .timeline-label,
+    .timeline-step.current .timeline-label { color: var(--clr-text-muted); }
+
+    /* State Views */
+    .state-view {
+      text-align: center;
+      padding: var(--space-3xl) var(--space-xl);
+      animation: fadeUp 0.4s var(--ease-out) both;
+    }
+
+    .state-view__icon {
+      font-size: 3rem;
+      margin-bottom: var(--space-md);
+      opacity: 0.25;
+    }
+
+    .state-view__title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: var(--space-sm);
+    }
+
+    .state-view__text { color: var(--clr-text-muted); font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+
+  <!-- Navigation -->
+  <nav class="nl-nav" role="navigation">
+    <div class="nl-nav__brand" onclick="window.location.href='/'">
+      <div class="nl-nav__brand-icon" aria-hidden="true">
+        <i class="fas fa-gamepad"></i>
+      </div>
+      NewLife
+    </div>
+    <div class="nl-nav__actions">
+      <button class="btn btn-ghost btn-sm" onclick="window.location.href='/'">
+        <i class="fas fa-home"></i>
+        <span>الرئيسية</span>
+      </button>
+    </div>
+  </nav>
+
+  <main role="main">
+    <div class="orders-page">
+
+      <!-- Page Title -->
+      <div style="margin-bottom:var(--space-lg);" class="animate-fade-up">
+        <h1 style="font-size:1.6rem;font-weight:900;margin-bottom:0.3rem;">
+          <i class="fas fa-receipt" style="color:var(--clr-primary-light);margin-left:0.5rem;font-size:1.2rem;"></i>
+          سجل الطلبات
+        </h1>
+        <p style="color:var(--clr-text-muted);font-size:0.88rem;">أدخل رقم هاتفك لعرض طلباتك ومتابعة حالتها</p>
+      </div>
+
+      <!-- Search Card -->
+      <div class="search-card">
+        <div class="search-card__title">
+          <i class="fas fa-search"></i> البحث عن طلباتك
+        </div>
+        <div class="search-card__subtitle">أدخل رقم الهاتف الذي استخدمته عند الطلب</div>
+        <div class="search-row">
+          <input
+            type="tel"
+            id="searchPhone"
+            class="form-input"
+            placeholder="07xxxxxxxxx"
+            autocomplete="tel"
+            onkeydown="if(event.key==='Enter') fetchOrders()"
+          >
+          <button class="btn btn-primary" onclick="fetchOrders()" id="searchBtn">
+            <i class="fas fa-search"></i>
+            بحث
+          </button>
+        </div>
+      </div>
+
+      <!-- Orders Container -->
+      <div id="ordersContainer">
+        <div class="state-view">
+          <div class="state-view__icon"><i class="fas fa-inbox"></i></div>
+          <div class="state-view__title">ابحث عن طلباتك</div>
+          <div class="state-view__text">ادخل رقم هاتفك في الحقل أعلاه للعثور على طلباتك</div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer" aria-live="assertive"></div>
+
+  <script>
+    const STATUS_MAP = {
+      pending:   { label: 'قيد الانتظار', cls: 'badge-pending', steps: 0 },
+      confirmed: { label: 'مؤكد',          cls: 'badge-confirmed', steps: 1 },
+      delivered: { label: 'مكتمل',         cls: 'badge-delivered', steps: 2 },
+      cancelled: { label: 'ملغي',          cls: 'badge-cancelled', steps: -1 }
+    };
+
+    const TIMELINE_STEPS = [
+      { label: 'استلام', icon: 'fa-inbox' },
+      { label: 'تأكيد', icon: 'fa-check' },
+      { label: 'مكتمل', icon: 'fa-flag' }
+    ];
+
+    function buildTimeline(status) {
+      const s = STATUS_MAP[status] || STATUS_MAP.pending;
+      if (status === 'cancelled') return '';
+
+      return `<div class="order-timeline">
+        ${TIMELINE_STEPS.map((step, i) => {
+          const done = i < s.steps;
+          const current = i === s.steps;
+          return `<div class="timeline-step ${done ? 'done' : ''} ${current ? 'current' : ''}">
+            <div class="timeline-dot"><i class="fas ${step.icon}"></i></div>
+            <div class="timeline-label">${step.label}</div>
+          </div>`;
+        }).join('')}
+      </div>`;
+    }
+
+    async function fetchOrders() {
+      const phone = document.getElementById('searchPhone').value.trim();
+      if (!phone) {
+        showToast('يرجى إدخال رقم الهاتف', 'error');
+        return;
+      }
+
+      const container = document.getElementById('ordersContainer');
+      const btn = document.getElementById('searchBtn');
+
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+      container.innerHTML = `<div class="state-view"><div class="spinner" style="margin:auto;"></div></div>`;
+
+      try {
+        const res = await fetch('/api/orders?phone=' + encodeURIComponent(phone));
+        if (!res.ok) throw new Error('Server error');
+        const data = await res.json();
+        const orders = data.data || [];
+
+        if (orders.length === 0) {
+          container.innerHTML = `
+            <div class="state-view">
+              <div class="state-view__icon"><i class="fas fa-box-open"></i></div>
+              <div class="state-view__title">لا توجد طلبات</div>
+              <div class="state-view__text">لم يتم العثور على طلبات بهذا الرقم</div>
+            </div>`;
+          return;
+        }
+
+        container.innerHTML = orders.map((order, idx) => {
+          const status = order.status || 'pending';
+          const s = STATUS_MAP[status] || STATUS_MAP.pending;
+          const date = new Date(order.created_at || order.date);
+          const dateStr = date.toLocaleDateString('ar-IQ', { year: 'numeric', month: 'long', day: 'numeric' });
+
+          return `<div class="order-card" style="animation-delay:${idx * 0.07}s">
+            <div class="order-card__header">
+              <div>
+                <div class="order-id">${order.order_id || order.id}</div>
+                <div class="order-name">${order.customer_name}</div>
+                <div class="order-date"><i class="far fa-calendar-alt" style="margin-left:4px;"></i>${dateStr}</div>
+              </div>
+              <span class="badge ${s.cls}">${s.label}</span>
+            </div>
+
+            <div class="order-card__body">
+              ${buildTimeline(status)}
+              <ul class="order-games-list">
+                ${(order.games || []).map(g =>
+                  `<li><strong>${g.name_ar || g.name}</strong> — هارد ${g.hardDrive || '1'}</li>`
+                ).join('')}
+              </ul>
+            </div>
+
+            <div class="order-card__footer">
+              <div class="order-total">
+                <span>المجموع</span>
+                ${Number(order.total_price || order.total).toLocaleString()} دينار
+              </div>
+              <span style="font-size:0.78rem;color:var(--clr-text-muted);">
+                ${(order.games || []).length} لعبة
+              </span>
+            </div>
+          </div>`;
+        }).join('');
+
+      } catch(e) {
+        container.innerHTML = `
+          <div class="state-view">
+            <div class="state-view__icon" style="color:var(--clr-danger);opacity:0.6;"><i class="fas fa-exclamation-circle"></i></div>
+            <div class="state-view__title">حدث خطأ</div>
+            <div class="state-view__text">تعذر جلب الطلبات، يرجى المحاولة مجدداً</div>
+          </div>`;
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-search"></i> بحث';
+      }
+    }
+
+    function showToast(msg, type = 'success') {
+      const c = document.getElementById('toastContainer');
+      const t = document.createElement('div');
+      t.className = `toast toast--${type}`;
+      t.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i> ${msg}`;
+      c.appendChild(t);
+      requestAnimationFrame(() => { requestAnimationFrame(() => t.classList.add('show')); });
+      setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 400); }, 3000);
+    }
+  </script>
+</body>
+</html>
