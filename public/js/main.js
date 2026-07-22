@@ -463,3 +463,29 @@ function showToast(msg, type = 'success') {
     setTimeout(() => toast.remove(), 400);
   }, 3200);
 }
+
+// ── PWA Installation Logic ────────────────────────────────────
+let deferredPWAInstallPrompt = null;
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPWAInstallPrompt = e;
+  const btn = document.getElementById('pwaInstallBtn');
+  if (btn) btn.style.display = 'inline-flex';
+});
+
+function triggerPWAInstall() {
+  if (deferredPWAInstallPrompt) {
+    deferredPWAInstallPrompt.prompt();
+    deferredPWAInstallPrompt.userChoice.then(choice => {
+      if (choice.outcome === 'accepted') {
+        showToast('تم تثبيت تطبيق المتجر بنجاح! 🎉');
+      }
+      deferredPWAInstallPrompt = null;
+      const btn = document.getElementById('pwaInstallBtn');
+      if (btn) btn.style.display = 'none';
+    });
+  } else {
+    alert('📱 لتثبيت التطبيق على جهازك:\n\n• على الآيفون: اضغط زر المشاركة (⎕↑) في Safari ثم اختر "إضافة إلى الشاشة الرئيسية"\n• على الأندرويد/الحاسوب: اضغط خيارات المتصفح (⋮) ثم اختر "تثبيت التطبيق"');
+  }
+}

@@ -738,6 +738,32 @@ function showToast(msg, type = 'success') {
   }, 3200);
 }
 
+// ── Admin PWA Installation Logic ──────────────────────────────
+let deferredAdminPWAInstallPrompt = null;
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredAdminPWAInstallPrompt = e;
+  const btn = document.getElementById('adminPwaInstallBtn');
+  if (btn) btn.style.display = 'inline-flex';
+});
+
+function triggerAdminPWAInstall() {
+  if (deferredAdminPWAInstallPrompt) {
+    deferredAdminPWAInstallPrompt.prompt();
+    deferredAdminPWAInstallPrompt.userChoice.then(choice => {
+      if (choice.outcome === 'accepted') {
+        showToast('تم تثبيت تطبيق لوحة التحكم بنجاح! 🎉');
+      }
+      deferredAdminPWAInstallPrompt = null;
+      const btn = document.getElementById('adminPwaInstallBtn');
+      if (btn) btn.style.display = 'none';
+    });
+  } else {
+    alert('📱 لتثبيت تطبيق لوحة الأدمن على جهازك:\n\n• على الآيفون: اضغط زر المشاركة (⎕↑) في Safari ثم اختر "إضافة إلى الشاشة الرئيسية"\n• على الأندرويد/الحاسوب: اضغط خيارات المتصفح (⋮) ثم اختر "تثبيت التطبيق"');
+  }
+}
+
 // ── Init ──────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   switchTab('dashboard', document.getElementById('nav-dashboard'));
