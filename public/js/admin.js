@@ -233,21 +233,12 @@ function viewOrder(id) {
 
   document.getElementById('orderModalId').textContent = '#' + orderId;
 
-  const content = `
-    <div class="order-detail-section">
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <h4>معلومات الزبون</h4>
-        <button class="btn btn-ghost btn-sm" onclick="editOrderModal('${orderId}')" style="color:var(--clr-gold);font-size:0.8rem;">
-          <i class="fas fa-edit"></i> تعديل بيانات الطلب
-        </button>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:0.5rem;font-size:0.9rem;margin-top:0.5rem;">
-    const completedGames = o.completedGames || o.completed_games || [];
-    const totalGames     = (o.games || []).length;
-    const completedCount = (o.games || []).filter(g => completedGames.includes(g.id || g.name || g.nameAr)).length;
-    const progressPct    = totalGames > 0 ? Math.round((completedCount / totalGames) * 100) : 0;
+  const completedGames = o.completedGames || o.completed_games || [];
+  const totalGames     = (o.games || []).length;
+  const completedCount = (o.games || []).filter(g => completedGames.includes(g.id || g.name || g.nameAr)).length;
+  const progressPct    = totalGames > 0 ? Math.round((completedCount / totalGames) * 100) : 0;
 
-    const content = `
+  const content = `
     <div class="order-detail-section">
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <h4>معلومات الزبون</h4>
