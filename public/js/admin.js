@@ -325,8 +325,34 @@ function viewOrder(id) {
       </button>`;
   }
 
+  // Delete button always visible to admin
+  actions += `
+    <button class="btn btn-danger" onclick="deleteOrder('${orderId}')" title="حذف الطلب نهائياً" style="margin-top:0.25rem;width:100%;">
+      <i class="fas fa-trash-alt"></i> حذف الطلب نهائياً
+    </button>`;
+
   document.getElementById('orderModalActions').innerHTML = actions;
   document.getElementById('orderModal').classList.add('active');
+}
+
+// ── Delete Order ──────────────────────────────────────────────
+async function deleteOrder(orderId) {
+  if (!confirm(`هل أنت متأكد من حذف الطلب #${orderId} نهائياً؟\nلا يمكن التراجع عن هذا الإجراء!`)) return;
+
+  try {
+    const token = localStorage.getItem('nl_admin_token');
+    const res = await fetch(`/api/orders/${orderId}`, {
+      method:  'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!res.ok) throw new Error();
+    showToast('تم حذف الطلب بنجاح 🗑️');
+    closeOrderModal();
+    allOrders = allOrders.filter(o => (o.orderId || o.order_id || o.id) !== orderId);
+    renderOrders();
+  } catch {
+    showToast('فشل حذف الطلب', 'error');
+  }
 }
 
 async function toggleGameCompleted(orderId, gameId, isChecked) {
