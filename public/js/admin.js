@@ -134,7 +134,11 @@ function initPolling() {
         showToast(`🔔 تنبيه: تم استلام ${newOrdersCount} طلب جديد!`, 'info');
       }
 
-      if (JSON.stringify(allOrders) !== JSON.stringify(freshOrders)) {
+      // Create a hash of orders to check for meaningful changes (status or new orders)
+      const currentHash = allOrders.map(o => (o.id || o.order_id || o.orderId) + '_' + o.status + '_' + (o.totalPrice || o.total_price || 0)).join('|');
+      const freshHash = freshOrders.map(o => (o.id || o.order_id || o.orderId) + '_' + o.status + '_' + (o.totalPrice || o.total_price || 0)).join('|');
+
+      if (currentHash !== freshHash) {
         allOrders = freshOrders;
         if (currentTab === 'orders') renderOrders();
         if (currentTab === 'dashboard') {
@@ -182,7 +186,9 @@ function updateDashboardStats() {
     badge.style.display = pending > 0 ? 'inline-flex' : 'none';
   }
 
-  renderDashboardCharts();
+  if (currentTab === 'dashboard') {
+    renderDashboardCharts();
+  }
 }
 
 let salesChartInstance = null;
