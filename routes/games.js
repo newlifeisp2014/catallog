@@ -604,7 +604,7 @@ router.post('/refresh-image/:id', verifyToken, async (req, res) => {
         }
 
         const game = gameResult.rows[0];
-        const searchQuery = game.name_ar || game.name;
+        const searchQuery = game.name || game.name_ar;
 
         const searchResult = await searchGameImage(searchQuery, game.category);
 
@@ -649,7 +649,8 @@ router.post('/refresh-all-images', verifyToken, async (req, res) => {
         for (const game of games) {
             try {
                 if (!game.image || game.image.includes('placehold.co') || !game.trailer) {
-                    const searchQuery = game.name_ar || game.name;
+                    // الاعتماد على الاسم الإنجليزي أولاً للبحث لأنه أدق في يوتيوب وستيم
+                    const searchQuery = game.name || game.name_ar;
                     const searchResult = await searchGameImage(searchQuery, game.category);
 
                     let finalImage = searchResult.image;
@@ -667,6 +668,9 @@ router.post('/refresh-all-images', verifyToken, async (req, res) => {
                         [finalImage, searchResult.trailer || game.trailer || '', game.id]
                     );
                     updated++;
+                    
+                    // تأخير لمدة 2 ثانية لتجنب حظر IP من قبل يوتيوب أو ستيم بسبب كثرة الطلبات (Rate limit)
+                    await new Promise(resolve => setTimeout(resolve, 2000));
                 }
             } catch (e) {
                 failed++;
