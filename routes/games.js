@@ -30,7 +30,14 @@ function downloadImage(url, filename) {
             return resolve(`/images/games/${filename}`);
         }
 
-        const req = https.get(url, { timeout: 15000 }, (resp) => {
+        const options = {
+            timeout: 15000,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
+            }
+        };
+
+        const req = https.get(url, options, (resp) => {
             if (resp.statusCode >= 300 && resp.statusCode < 400 && resp.headers.location) {
                 return downloadImage(resp.headers.location, filename).then(resolve);
             }
@@ -653,7 +660,9 @@ router.post('/refresh-image/:id', verifyToken, async (req, res) => {
 // Bulk refresh all images/trailers (Protected)
 router.post('/refresh-all-images', verifyToken, async (req, res) => {
     try {
-        const { type } = req.body || {}; // 'images' or 'trailers'
+        const { type } = req.body || {}; // 'images', 'trailers', or undefined (from old cached js)
+        const checkAll = !type; // If no type is provided, check both
+
         const result = await pool.query('SELECT id, name, name_ar, category, image, trailer FROM games');
         const games = result.rows;
 
@@ -670,8 +679,8 @@ router.post('/refresh-all-images', verifyToken, async (req, res) => {
                     }
                 }
 
-                const needsImage = type === 'images' && (!game.image || game.image.includes('placehold.co') || isLocalMissing);
-                const needsTrailer = type === 'trailers' && !game.trailer;
+                const needsImage = (checkAll || type === 'images') && (!game.image || game.image.includes('placehold.co') || isLocalMissing);
+                const needsTrailer = (checkAll || type === 'trailers') && !game.trailer;
 
                 if (needsImage || needsTrailer) {
                     // الاعتماد على الاسم الإنجليزي أولاً للبحث لأنه أدق في يوتيوب وستيم

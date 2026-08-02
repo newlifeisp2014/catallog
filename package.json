@@ -4,7 +4,8 @@
   "description": "Premium PS4 Games Catalog System with Modern UI & PWA",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "testdb": "node test_db.js"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
