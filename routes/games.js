@@ -329,7 +329,10 @@ async function searchYouTube(query) {
         if (match && match[1]) {
             const videoId = match[1];
             console.log(`📺 YouTube: "${query}" -> Found Video ID: ${videoId}`);
-            return `https://www.youtube.com/embed/${videoId}?autoplay=1`;
+            return {
+                trailer: `https://www.youtube.com/embed/${videoId}?autoplay=1`,
+                thumbnail: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+            };
         }
         return null;
     } catch (e) {
@@ -357,7 +360,7 @@ async function searchGameImage(query, category = 'default') {
         console.log(`✅ Steam Cover: ${steam.gameName}`);
     }
 
-    // 2. إذا Steam فشل، جرب RAWG للألعاب الحصرية على PS4
+    // 2. إذا Steam فشل، جرب RAWG للألعاب الحصرية على PS4 (ملاحظة: قد يفشل بدون API Key)
     if (!result.image) {
         const rawg = await searchRAWG(query);
         if (rawg && rawg.image) {
@@ -385,20 +388,30 @@ async function searchGameImage(query, category = 'default') {
         }
     }
 
-    // 5. صورة غلاف PS4 احتياطية
+    // 5. يوتيوب (البحث عن التريلر والصورة المصغرة)
+    let ytResult = null;
+    if (!result.trailer || !result.image) {
+        ytResult = await searchYouTube(query);
+        if (ytResult) {
+            // إضافة التريلر إذا كان مفقوداً
+            if (!result.trailer) {
+                result.trailer = ytResult.trailer;
+                console.log(`✅ YouTube Trailer Added`);
+            }
+            // استخدام صورة يوتيوب كغلاف أساسي إذا فشلت كل المصادر السابقة
+            if (!result.image) {
+                result.image = ytResult.thumbnail;
+                result.source = 'youtube';
+                console.log(`✅ YouTube Thumbnail Cover Added`);
+            }
+        }
+    }
+
+    // 6. صورة غلاف PS4 احتياطية إذا فشل حتى اليوتيوب
     if (!result.image) {
         result.image = getPlaceholderImage(query, category);
         result.source = 'placeholder';
         console.log(`⚠️ Placeholder PS4 Cover`);
-    }
-
-    // 6. جلب التريلر من يوتيوب إذا لم نحصل عليه من Steam
-    if (!result.trailer) {
-        const ytTrailer = await searchYouTube(query);
-        if (ytTrailer) {
-            result.trailer = ytTrailer;
-            console.log(`✅ YouTube Trailer Added`);
-        }
     }
 
     console.log(`📊 المصدر النهائي للغلاف: ${result.source}`);
