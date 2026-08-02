@@ -58,7 +58,10 @@ function switchTab(tabId, el) {
   closeSidebar();
 }
 
-// ── Load Data ─────────────────────────────────────────────────
+// ── Load Data & Polling ───────────────────────────────────────
+let pollingInterval = null;
+let lastKnownPendingIds = new Set();
+
 async function loadData() {
   try {
     const promises = [];
@@ -97,10 +100,69 @@ async function loadData() {
       renderRecentOrders();
     }
 
+    if (!pollingInterval) initPolling();
+
   } catch (e) {
     console.error('[Admin] loadData error', e);
     showToast('خطأ في جلب البيانات', 'error');
   }
+}
+
+function initPolling() {
+  if (pollingInterval) clearInterval(pollingInterval);
+  allOrders.filter(o => o.status === 'pending').forEach(o => lastKnownPendingIds.add(o.id || o.order_id || o.orderId));
+
+  pollingInterval = setInterval(async () => {
+    try {
+      const res = await fetch('/api/orders');
+      if (!res.ok) return;
+      const data = await res.json();
+      const freshOrders = data.data || data.orders || data || [];
+      const freshPending = freshOrders.filter(o => o.status === 'pending');
+      
+      let newOrdersCount = 0;
+      freshPending.forEach(o => {
+        const id = o.id || o.order_id || o.orderId;
+        if (!lastKnownPendingIds.has(id)) {
+          newOrdersCount++;
+          lastKnownPendingIds.add(id);
+        }
+      });
+
+      if (newOrdersCount > 0) {
+        playNotificationSound();
+        showToast(`🔔 تنبيه: تم استلام ${newOrdersCount} طلب جديد!`, 'info');
+      }
+
+      if (JSON.stringify(allOrders) !== JSON.stringify(freshOrders)) {
+        allOrders = freshOrders;
+        if (currentTab === 'orders') renderOrders();
+        if (currentTab === 'dashboard') {
+          updateDashboardStats();
+          renderRecentOrders();
+        } else {
+          updateDashboardStats();
+        }
+      }
+    } catch (e) {}
+  }, 15000); // 15 seconds
+}
+
+function playNotificationSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(800, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.1);
+    gain.gain.setValueAtTime(1, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.4);
+  } catch (e) {}
 }
 
 // ── Dashboard Stats ───────────────────────────────────────────
@@ -119,7 +181,94 @@ function updateDashboardStats() {
     badge.textContent = pending;
     badge.style.display = pending > 0 ? 'inline-flex' : 'none';
   }
+
+  renderDashboardCharts();
 }
+
+let salesChartInstance = null;
+let statusChartInstance = null;
+
+function renderDashboardCharts() {
+  if (typeof Chart === 'undefined') return;
+
+  const salesCtx = document.getElementById('salesChart');
+  if (salesCtx) {
+    const last7Days = [];
+    const salesData = [];
+    
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toLocaleDateString('ar-IQ', { month: 'short', day: 'numeric' });
+      last7Days.push(dateStr);
+      
+      let dayTotal = 0;
+      allOrders.forEach(o => {
+        const orderDate = new Date(o.createdAt || o.created_at || o.date);
+        if (orderDate.getDate() === d.getDate() && orderDate.getMonth() === d.getMonth() && o.status !== 'cancelled') {
+          dayTotal += parseFloat(o.totalPrice || o.total_price || o.total || 0);
+        }
+      });
+      salesData.push(dayTotal);
+    }
+
+    if (salesChartInstance) salesChartInstance.destroy();
+    salesChartInstance = new Chart(salesCtx, {
+      type: 'bar',
+      data: {
+        labels: last7Days,
+        datasets: [{
+          label: 'المبيعات (دينار)',
+          data: salesData,
+          backgroundColor: '#7c3aed',
+          borderRadius: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#a1a1aa', font: { family: 'Space Grotesk' } } },
+          x: { grid: { display: false }, ticks: { color: '#a1a1aa', font: { family: 'Cairo' } } }
+        }
+      }
+    });
+  }
+
+  const statusCtx = document.getElementById('statusChart');
+  if (statusCtx) {
+    let pending = 0, confirmed = 0, delivered = 0, cancelled = 0;
+    allOrders.forEach(o => {
+      if (o.status === 'pending') pending++;
+      else if (o.status === 'confirmed') confirmed++;
+      else if (o.status === 'delivered') delivered++;
+      else if (o.status === 'cancelled') cancelled++;
+    });
+
+    if (statusChartInstance) statusChartInstance.destroy();
+    statusChartInstance = new Chart(statusCtx, {
+      type: 'doughnut',
+      data: {
+        labels: ['قيد الانتظار', 'مؤكد', 'مكتمل', 'ملغي'],
+        datasets: [{
+          data: [pending, confirmed, delivered, cancelled],
+          backgroundColor: ['#f59e0b', '#3b82f6', '#10b981', '#ef4444'],
+          borderWidth: 0
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '70%',
+        plugins: {
+          legend: { position: 'bottom', labels: { color: '#e4e4e7', font: { family: 'Cairo' } } }
+        }
+      }
+    });
+  }
+}
+
 
 function setEl(id, val) {
   const el = document.getElementById(id);

@@ -53,7 +53,10 @@ async function fetchGames() {
 }
 
 // ── Render Games ──────────────────────────────────────────────
-function renderGames() {
+let currentRenderLimit = 36;
+
+function renderGames(resetLimit = true) {
+  if (resetLimit) currentRenderLimit = 36;
   const q = searchQuery.toLowerCase();
 
   const filtered = allGames.filter(g => {
@@ -75,11 +78,36 @@ function renderGames() {
   }
 
   gamesGrid.innerHTML = '';
-  filtered.forEach((game, i) => {
+  const gamesToShow = filtered.slice(0, currentRenderLimit);
+  
+  gamesToShow.forEach((game, i) => {
     const inCart  = cart.some(c => c.id === game.id);
     const card    = buildGameCard(game, inCart, i);
     gamesGrid.appendChild(card);
   });
+
+  if (currentRenderLimit < filtered.length) {
+    const loadMoreWrapper = document.createElement('div');
+    loadMoreWrapper.style.gridColumn = '1 / -1';
+    loadMoreWrapper.style.textAlign = 'center';
+    loadMoreWrapper.style.marginTop = '2rem';
+    loadMoreWrapper.style.marginBottom = '2rem';
+    
+    loadMoreWrapper.innerHTML = `
+      <button class="btn btn-outline btn-lg" onclick="loadMoreGames()">
+        <i class="fas fa-sync-alt" style="margin-left:8px;"></i> عرض المزيد
+      </button>
+      <div style="margin-top:0.5rem; font-size:0.8rem; color:var(--clr-text-muted);">
+        عرض ${currentRenderLimit} من أصل ${filtered.length} لعبة
+      </div>
+    `;
+    gamesGrid.appendChild(loadMoreWrapper);
+  }
+}
+
+function loadMoreGames() {
+  currentRenderLimit += 36;
+  renderGames(false);
 }
 
 // ── Build Game Card ───────────────────────────────────────────
