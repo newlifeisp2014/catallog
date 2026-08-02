@@ -674,6 +674,17 @@
       requestAnimationFrame(() => { requestAnimationFrame(() => t.classList.add('show')); });
       setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 400); }, 3200);
     }
+
+    /* ══════════════════════════════════════════
+       Auto Load
+    ══════════════════════════════════════════ */
+    window.addEventListener('DOMContentLoaded', () => {
+      const savedPhone = localStorage.getItem('customer_phone');
+      if (savedPhone) {
+        document.getElementById('searchPhone').value = savedPhone;
+        fetchOrders();
+      }
+    });
   </script>
 </body>
 </html>

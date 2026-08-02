@@ -291,6 +291,9 @@ async function submitOrder(e) {
     });
 
     if (res.ok) {
+      // حفظ رقم الهاتف للمستقبل (في صفحة الطلبات)
+      localStorage.setItem('customer_phone', phone);
+      
       // Clear cart
       cart = [];
       saveCart();
