@@ -88,20 +88,34 @@ function renderGames(resetLimit = true) {
 
   if (currentRenderLimit < filtered.length) {
     const loadMoreWrapper = document.createElement('div');
+    loadMoreWrapper.id = 'loadMoreTrigger';
     loadMoreWrapper.style.gridColumn = '1 / -1';
     loadMoreWrapper.style.textAlign = 'center';
-    loadMoreWrapper.style.marginTop = '2rem';
-    loadMoreWrapper.style.marginBottom = '2rem';
+    loadMoreWrapper.style.padding = '2rem 0';
     
     loadMoreWrapper.innerHTML = `
-      <button class="btn btn-outline btn-lg" onclick="loadMoreGames()">
-        <i class="fas fa-sync-alt" style="margin-left:8px;"></i> عرض المزيد
-      </button>
-      <div style="margin-top:0.5rem; font-size:0.8rem; color:var(--clr-text-muted);">
-        عرض ${currentRenderLimit} من أصل ${filtered.length} لعبة
+      <div style="display:flex; flex-direction:column; align-items:center; gap:10px; color:var(--clr-text-muted);">
+        <i class="fas fa-spinner fa-spin" style="font-size: 1.5rem; color:var(--clr-primary);"></i>
+        <div style="font-size:0.9rem; font-weight:600;">جاري تحميل المزيد من الألعاب...</div>
+        <div style="font-size:0.75rem;">عرض ${currentRenderLimit} من أصل ${filtered.length} لعبة</div>
       </div>
     `;
     gamesGrid.appendChild(loadMoreWrapper);
+
+    // إعداد مراقب التمرير (Intersection Observer) للتحميل التلقائي
+    if (window.infiniteScrollObserver) {
+      window.infiniteScrollObserver.disconnect();
+    }
+    
+    window.infiniteScrollObserver = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) {
+        // إيقاف المراقبة لتجنب استدعاء مزدوج حتى يتم الرندر الجديد
+        window.infiniteScrollObserver.disconnect();
+        loadMoreGames();
+      }
+    }, { rootMargin: '300px' }); // يبدأ التحميل قبل 300 بكسل من الوصول لنهاية الشاشة
+    
+    window.infiniteScrollObserver.observe(loadMoreWrapper);
   }
 }
 
