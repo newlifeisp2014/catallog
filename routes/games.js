@@ -313,6 +313,31 @@ function getPlaceholderImage(gameName, category) {
     return `https://placehold.co/400x600/003087/ffffff?text=${text}&font=space-grotesk`;
 }
 
+// ==================== 6. YouTube Search ====================
+async function searchYouTube(query) {
+    try {
+        const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query + ' PS4 Trailer')}`;
+        const res = await fetch(url, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
+                'Accept-Language': 'en-US,en;q=0.9'
+            }
+        });
+        const html = await res.text();
+        // نبحث عن أول نتيجة فيديو حقيقية في بحث يوتيوب
+        const match = html.match(/"videoRenderer":\{"videoId":"([^"]+)"/);
+        if (match && match[1]) {
+            const videoId = match[1];
+            console.log(`📺 YouTube: "${query}" -> Found Video ID: ${videoId}`);
+            return `https://www.youtube.com/embed/${videoId}?autoplay=1`;
+        }
+        return null;
+    } catch (e) {
+        console.error('YouTube error:', e.message);
+        return null;
+    }
+}
+
 // ==================== البحث الشامل عن غلاف اللعبة ====================
 
 async function searchGameImage(query, category = 'default') {
@@ -365,6 +390,15 @@ async function searchGameImage(query, category = 'default') {
         result.image = getPlaceholderImage(query, category);
         result.source = 'placeholder';
         console.log(`⚠️ Placeholder PS4 Cover`);
+    }
+
+    // 6. جلب التريلر من يوتيوب إذا لم نحصل عليه من Steam
+    if (!result.trailer) {
+        const ytTrailer = await searchYouTube(query);
+        if (ytTrailer) {
+            result.trailer = ytTrailer;
+            console.log(`✅ YouTube Trailer Added`);
+        }
     }
 
     console.log(`📊 المصدر النهائي للغلاف: ${result.source}`);
@@ -606,7 +640,7 @@ router.post('/refresh-image/:id', verifyToken, async (req, res) => {
 // Bulk refresh all images (Protected)
 router.post('/refresh-all-images', verifyToken, async (req, res) => {
     try {
-        const result = await pool.query('SELECT id, name, name_ar, category, image FROM games');
+        const result = await pool.query('SELECT id, name, name_ar, category, image, trailer FROM games');
         const games = result.rows;
 
         let updated = 0;
@@ -614,7 +648,7 @@ router.post('/refresh-all-images', verifyToken, async (req, res) => {
 
         for (const game of games) {
             try {
-                if (!game.image || game.image.includes('placehold.co')) {
+                if (!game.image || game.image.includes('placehold.co') || !game.trailer) {
                     const searchQuery = game.name_ar || game.name;
                     const searchResult = await searchGameImage(searchQuery, game.category);
 
@@ -629,8 +663,8 @@ router.post('/refresh-all-images', verifyToken, async (req, res) => {
                     }
 
                     await pool.query(
-                        'UPDATE games SET image = $1 WHERE id = $2',
-                        [finalImage, game.id]
+                        'UPDATE games SET image = $1, trailer = $2 WHERE id = $3',
+                        [finalImage, searchResult.trailer || game.trailer || '', game.id]
                     );
                     updated++;
                 }
