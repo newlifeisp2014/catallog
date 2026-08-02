@@ -131,7 +131,18 @@ function buildGameCard(game, inCart, index) {
         <span><i class="fas fa-tag" style="font-size:0.65rem;margin-left:3px;"></i>${catLabel[game.category] || game.category}</span>
         <span>${game.size || ''}</span>
       </div>
-      <div class="game-card__price">${Number(game.price).toLocaleString()} <span style="font-size:0.75rem;font-weight:600;">دينار</span></div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.4rem;">
+        <div class="game-card__price" style="margin-top:0;">${Number(game.price).toLocaleString()} <span style="font-size:0.75rem;font-weight:600;">دينار</span></div>
+        <button 
+          class="btn btn-gold btn-sm"
+          style="padding:0.25rem 0.6rem; border-radius:6px; font-size:0.8rem;"
+          onclick="event.stopPropagation(); handleCardAction('${game.id}')"
+          id="body-btn-${game.id}"
+          title="${inCart ? 'في السلة' : 'إضافة للسلة'}"
+        >
+          <i class="fas ${inCart ? 'fa-check' : 'fa-cart-plus'}"></i>
+        </button>
+      </div>
     </div>`;
 
   return card;
@@ -178,19 +189,29 @@ function updateCardState(id, inCart) {
   const card = document.querySelector(`[data-id="${id}"]`);
   if (!card) return;
   const btn = card.querySelector('.game-card__add-btn');
+  const bodyBtn = document.getElementById(`body-btn-${id}`);
 
   if (inCart) {
     card.classList.add('in-cart');
     if (btn) {
       btn.innerHTML = '<i class="fas fa-check"></i> في السلة ✓';
     }
+    if (bodyBtn) {
+      bodyBtn.innerHTML = '<i class="fas fa-check"></i>';
+      bodyBtn.title = 'في السلة';
+    }
   } else {
     card.classList.remove('in-cart');
     if (btn) {
       btn.innerHTML = '<i class="fas fa-cart-plus"></i> إضافة للسلة';
     }
+    if (bodyBtn) {
+      bodyBtn.innerHTML = '<i class="fas fa-cart-plus"></i>';
+      bodyBtn.title = 'إضافة للسلة';
+    }
   }
 }
+
 
 // ── Cart Badge ────────────────────────────────────────────────
 function updateCartBadge() {
