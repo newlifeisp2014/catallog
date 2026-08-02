@@ -785,6 +785,36 @@ async function refreshGameImage(id) {
   }
 }
 
+async function bulkRefreshImages() {
+  if (!confirm('هل أنت متأكد من رغبتك في فحص وتحديث جميع الألعاب التي لا تمتلك صور أو تريلرات؟ قد تستغرق هذه العملية عدة دقائق بناءً على عدد الألعاب.')) return;
+  
+  showToast('جاري تحديث الأغلفة والتريلرات لجميع الألعاب بالخلفية... يرجى الانتظار وعدم إغلاق الصفحة.', 'info');
+  const btn = document.querySelector('button[onclick="bulkRefreshImages()"]');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري التحديث...';
+  }
+
+  try {
+    const res = await fetch('/api/games/refresh-all-images', { method: 'POST' });
+    const data = await res.json();
+    
+    if (res.ok && data.success) {
+      showToast(`✅ اكتمل التحديث! تم تحديث ${data.updated} لعبة، وفشل ${data.failed}.`);
+      loadData();
+    } else {
+      showToast(data.error || 'حدث خطأ أثناء التحديث الشامل', 'error');
+    }
+  } catch (e) {
+    showToast('حدث خطأ في الاتصال بالسيرفر أثناء التحديث', 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-sync-alt"></i> تحديث النواقص';
+    }
+  }
+}
+
 async function saveGame(e) {
   e.preventDefault();
   const id     = document.getElementById('gameEditId').value;
