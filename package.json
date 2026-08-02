@@ -1,0 +1,15 @@
+{
+  "name": "newlife-v2",
+  "version": "2.0.0",
+  "description": "Premium PS4 Games Catalog System with Modern UI & PWA",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.11.0"
+  }
+}

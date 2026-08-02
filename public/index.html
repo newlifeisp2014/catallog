@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>NewLife — مكتبة الألعاب</title>
+  <meta name="description" content="تصفح واطلب أحدث ألعاب البلايستيشن بضغطة زر — NewLife">
+  <meta name="theme-color" content="#7c3aed">
+
+  <!-- PWA & App Icons -->
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/png" href="/icons/icon-192x192.png">
+  <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+  <!-- Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+
+  <!-- ─── Navigation ─── -->
+  <nav class="nl-nav" role="navigation" aria-label="التنقل الرئيسي">
+    <div class="nl-nav__brand" onclick="window.location.href='/'">
+      <div class="nl-nav__brand-icon" aria-hidden="true">
+        <i class="fas fa-gamepad"></i>
+      </div>
+      NewLife
+    </div>
+    <div class="nl-nav__actions">
+      <button class="btn btn-ghost btn-sm" onclick="window.location.href='/orders.html'" id="myOrdersBtn">
+        <i class="fas fa-receipt"></i>
+        <span>طلباتي</span>
+      </button>
+      <button class="btn btn-sm edit-mode-toggle-btn" id="editModeToggleBtn" onclick="toggleEditMode()" title="وضع التعديل">
+        <i class="fas fa-pencil-alt"></i>
+        <span id="editModeLabel">تعديل</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ─── Edit Mode Toolbar ─── -->
+  <div class="edit-mode-toolbar" id="editModeToolbar" style="display:none;">
+    <div class="edit-toolbar-inner container">
+      <div class="edit-toolbar-info">
+        <i class="fas fa-shield-alt" style="color:var(--clr-gold);"></i>
+        <span>وضع التعديل مفعّل — يمكنك إضافة وتعديل وحذف الألعاب</span>
+      </div>
+      <button class="btn btn-gold btn-sm" onclick="openAddGameModal()">
+        <i class="fas fa-plus"></i>
+        إضافة لعبة
+      </button>
+    </div>
+  </div>
+
+  <!-- ─── PWA Install Banner ─── -->
+  <div id="pwaInstallBanner" style="display:none; position:fixed; bottom:0; left:0; right:0; z-index:9999; padding:0.75rem 1rem; background:linear-gradient(135deg,#1a0a3e,#0f0a28); border-top:1px solid rgba(124,58,237,0.4); backdrop-filter:blur(12px); box-shadow:0 -4px 24px rgba(124,58,237,0.25);">
+    <div style="display:flex; align-items:center; gap:0.75rem; max-width:600px; margin:0 auto;">
+      <img src="/icons/icon-192x192.png" style="width:46px;height:46px;border-radius:12px;flex-shrink:0;" alt="NewLife">
+      <div style="flex:1; min-width:0;">
+        <div style="font-weight:800;font-size:0.95rem;color:#fff;">NewLife PS4 Catalog</div>
+        <div style="font-size:0.78rem;color:rgba(255,255,255,0.55);">ثبّت التطبيق على شاشتك الرئيسية</div>
+      </div>
+      <button onclick="triggerPWAInstall()" style="background:linear-gradient(135deg,#7c3aed,#f59e0b);color:#fff;border:none;border-radius:10px;padding:0.55rem 1rem;font-weight:700;font-size:0.88rem;cursor:pointer;white-space:nowrap;flex-shrink:0;">
+        <i class="fas fa-download" style="margin-left:0.3rem;"></i> تثبيت
+      </button>
+      <button onclick="document.getElementById('pwaInstallBanner').style.display='none'" style="background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.5);border:none;border-radius:8px;padding:0.5rem 0.6rem;cursor:pointer;flex-shrink:0;">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- ─── Hero ─── -->
+  <header class="hero container" role="banner">
+    <div class="hero__eyebrow animate-fade-up" style="animation-delay:0.05s">
+      <i class="fas fa-bolt"></i>
+      بلايستيشن 4 | أحدث الإصدارات
+    </div>
+    <h1 class="hero__title animate-fade-up" style="animation-delay:0.1s">
+      اكتشف <span class="highlight">عالمك الجديد</span>
+    </h1>
+    <p class="hero__subtitle animate-fade-up" style="animation-delay:0.15s">
+      تصفح مئات الألعاب واطلب مباشرة من المحل بأفضل الأسعار
+    </p>
+
+    <!-- Search -->
+    <div class="search-bar animate-fade-up" style="animation-delay:0.2s" role="search">
+      <i class="fas fa-search search-bar__icon" aria-hidden="true"></i>
+      <input
+        type="search"
+        class="search-bar__input"
+        id="searchInput"
+        placeholder="ابحث عن لعبة... (مثال: فيفا، قراند)"
+        autocomplete="off"
+        aria-label="البحث عن ألعاب"
+      >
+    </div>
+
+    <!-- Category Filters -->
+    <div class="filter-tabs animate-fade-up" id="filterTabs" style="animation-delay:0.25s" role="group" aria-label="تصفية حسب التصنيف">
+      <button class="filter-tab active" data-cat="all" id="filter-all">الكل</button>
+      <button class="filter-tab" data-cat="Action" id="filter-Action">أكشن</button>
+      <button class="filter-tab" data-cat="Sports" id="filter-Sports">رياضة</button>
+      <button class="filter-tab" data-cat="Adventure" id="filter-Adventure">مغامرة</button>
+      <button class="filter-tab" data-cat="RPG" id="filter-RPG">آر بي جي</button>
+      <button class="filter-tab" data-cat="Shooter" id="filter-Shooter">تصويب</button>
+      <button class="filter-tab" data-cat="Fighting" id="filter-Fighting">قتال</button>
+      <button class="filter-tab" data-cat="Racing" id="filter-Racing">سباق</button>
+      <button class="filter-tab" data-cat="Horror" id="filter-Horror">رعب</button>
+    </div>
+  </header>
+
+  <!-- ─── Games Grid ─── -->
+  <main class="container" id="mainContent" role="main">
+    <div class="games-grid" id="gamesGrid" role="list" aria-label="قائمة الألعاب">
+      <!-- Games rendered via JS -->
+    </div>
+  </main>
+
+  <!-- ─── Floating Cart Button ─── -->
+  <div class="float-cart" aria-live="polite">
+    <button class="float-cart__btn" onclick="openCart()" id="floatCartBtn" aria-label="فتح سلة المشتريات">
+      <i class="fas fa-shopping-basket"></i>
+      <span class="float-cart__badge" id="cartBadge" aria-hidden="true">0</span>
+    </button>
+  </div>
+
+  <!-- ─── Cart Drawer ─── -->
+  <div class="cart-overlay" id="cartOverlay" role="dialog" aria-modal="true" aria-label="سلة المشتريات" onclick="handleOverlayClick(event)">
+    <div class="cart-drawer">
+      <div class="cart-drawer__header">
+        <h2 class="cart-drawer__title">
+          <i class="fas fa-shopping-basket" style="color:var(--clr-primary-light); margin-left:0.5rem;"></i>
+          سلة المشتريات
+        </h2>
+        <button class="cart-drawer__close" onclick="closeCart()" aria-label="إغلاق السلة">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <div class="cart-drawer__body" id="cartItems">
+        <!-- Items rendered via JS -->
+      </div>
+
+      <div class="cart-drawer__footer">
+        <div class="cart-total">
+          <span class="cart-total__label">المجموع الكلي</span>
+          <span class="cart-total__amount" id="cartTotal">0 دينار</span>
+        </div>
+
+        <form class="checkout-form" id="checkoutForm" onsubmit="submitOrder(event)" novalidate>
+          <div class="form-field">
+            <label for="customerName">الاسم الكامل</label>
+            <input type="text" id="customerName" class="form-input" placeholder="ادخل اسمك الكامل" required autocomplete="name">
+          </div>
+          <div class="form-field">
+            <label for="customerPhone">رقم الهاتف</label>
+            <input type="tel" id="customerPhone" class="form-input" placeholder="07xxxxxxxxx" required autocomplete="tel">
+          </div>
+          <button type="submit" class="btn btn-gold btn-full btn-lg" id="checkoutBtn">
+            <i class="fas fa-paper-plane"></i>
+            إرسال الطلب
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Game Details Modal ─── -->
+  <div class="cart-overlay" id="gameDetailOverlay" role="dialog" aria-modal="true" aria-label="تفاصيل اللعبة" onclick="handleGameDetailOverlayClick(event)">
+    <div class="cart-drawer game-detail-drawer" style="max-width: 600px; width: 100%; border-radius: var(--radius-xl); height: auto; max-height: 90vh; overflow-y: auto;">
+      <div class="cart-drawer__header">
+        <h2 class="cart-drawer__title" id="gameDetailTitle">
+          <i class="fas fa-compact-disc" style="color:var(--clr-primary-light); margin-left:0.5rem;"></i>
+          تفاصيل اللعبة
+        </h2>
+        <button class="cart-drawer__close" onclick="closeGameDetailModal()" aria-label="إغلاق">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <div class="cart-drawer__body" id="gameDetailBody" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem;">
+        <!-- Filled via JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Toast Container ─── -->
+  <div class="toast-container" id="toastContainer" aria-live="assertive"></div>
+
+  <!-- ─── Edit Game Modal ─── -->
+  <div class="em-overlay" id="editGameOverlay" onclick="handleEditOverlayClick(event)" role="dialog" aria-modal="true" aria-label="تعديل لعبة">
+    <div class="em-modal">
+      <div class="em-modal__header">
+        <h2 class="em-modal__title" id="editModalTitle">
+          <i class="fas fa-plus-circle" style="color:var(--clr-gold); margin-left:0.5rem;"></i>
+          إضافة لعبة جديدة
+        </h2>
+        <button class="em-modal__close" onclick="closeEditGameModal()" aria-label="إغلاق">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="em-modal__body">
+        <form id="editGameForm" onsubmit="saveGameFromCatalog(event)" novalidate>
+          <input type="hidden" id="emGameId">
+
+          <div class="em-form-grid">
+            <!-- Arabic Name -->
+            <div class="em-form-group em-span2">
+              <label for="emNameAr">اسم اللعبة (عربي) *</label>
+              <input type="text" id="emNameAr" class="em-input" placeholder="مثال: جود اوف وور" required>
+            </div>
+
+            <!-- English Name -->
+            <div class="em-form-group em-span2">
+              <label for="emName">اسم اللعبة (إنجليزي) *</label>
+              <input type="text" id="emName" class="em-input" placeholder="مثال: God of War" required>
+            </div>
+
+            <!-- Price -->
+            <div class="em-form-group">
+              <label for="emPrice">السعر (دينار) *</label>
+              <input type="number" id="emPrice" class="em-input" placeholder="15000" min="0" required>
+            </div>
+
+            <!-- Size -->
+            <div class="em-form-group">
+              <label for="emSize">الحجم *</label>
+              <input type="text" id="emSize" class="em-input" placeholder="50 GB" required>
+            </div>
+
+            <!-- Category -->
+            <div class="em-form-group">
+              <label for="emCategory">التصنيف *</label>
+              <select id="emCategory" class="em-input" required>
+                <option value="Action">أكشن</option>
+                <option value="Adventure">مغامرة</option>
+                <option value="Sports">رياضة</option>
+                <option value="RPG">آر بي جي</option>
+                <option value="Fighting">قتال</option>
+                <option value="Shooter">تصويب</option>
+                <option value="Racing">سباق</option>
+                <option value="Horror">رعب</option>
+              </select>
+            </div>
+
+            <!-- Hard Drive -->
+            <div class="em-form-group">
+              <label for="emHardDrive">رقم الهارد *</label>
+              <select id="emHardDrive" class="em-input" required>
+                <option value="1">هارد 1</option>
+                <option value="2">هارد 2</option>
+                <option value="3">هارد 3</option>
+                <option value="4">هارد 4</option>
+                <option value="5">هارد 5</option>
+                <option value="6">هارد 6</option>
+                <option value="7">هارد 7</option>
+                <option value="8">هارد 8</option>
+              </select>
+            </div>
+
+            <!-- Image URL -->
+            <div class="em-form-group em-span2">
+              <label for="emImage">
+                رابط الصورة
+                <span style="font-size:0.75rem;color:var(--clr-text-muted);font-weight:400;"> (اتركه فارغاً للجلب التلقائي)</span>
+              </label>
+              <input type="url" id="emImage" class="em-input" placeholder="https://...">
+            </div>
+
+            <!-- Description -->
+            <div class="em-form-group em-span2">
+              <label for="emDescription">نبذة عن اللعبة</label>
+              <textarea id="emDescription" class="em-input" rows="3" placeholder="وصف مختصر عن اللعبة..."></textarea>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="em-modal__footer">
+        <button type="button" class="btn btn-ghost" onclick="closeEditGameModal()">إلغاء</button>
+        <button type="submit" form="editGameForm" class="btn btn-gold" id="emSaveBtn" style="flex:1;">
+          <i class="fas fa-save"></i>
+          <span id="emSaveBtnLabel">حفظ اللعبة</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Delete Confirm Modal ─── -->
+  <div class="em-overlay" id="deleteConfirmOverlay" onclick="handleDeleteOverlayClick(event)" role="dialog" aria-modal="true" aria-label="تأكيد الحذف">
+    <div class="em-modal em-modal--sm">
+      <div class="em-modal__header">
+        <h2 class="em-modal__title" style="color:var(--clr-danger);">
+          <i class="fas fa-trash-alt" style="margin-left:0.5rem;"></i>
+          تأكيد الحذف
+        </h2>
+        <button class="em-modal__close" onclick="closeDeleteModal()" aria-label="إغلاق">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="em-modal__body" style="text-align:center; padding:1.5rem;">
+        <div style="font-size:3rem; margin-bottom:1rem;">🗑️</div>
+        <p style="font-size:1rem; font-weight:600; color:var(--clr-text); margin-bottom:0.5rem;">هل أنت متأكد من حذف اللعبة؟</p>
+        <p style="font-size:0.88rem; color:var(--clr-text-muted);" id="deleteGameName">—</p>
+        <p style="font-size:0.8rem; color:var(--clr-danger); margin-top:0.75rem;">⚠️ هذا الإجراء لا يمكن التراجع عنه</p>
+      </div>
+      <div class="em-modal__footer">
+        <button type="button" class="btn btn-ghost" onclick="closeDeleteModal()">إلغاء</button>
+        <button type="button" class="btn" style="flex:1; background:var(--clr-danger); color:#fff;" id="confirmDeleteBtn" onclick="confirmDelete()">
+          <i class="fas fa-trash-alt"></i>
+          نعم، احذف اللعبة
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Scripts ─── -->
+  <script src="/js/main.js"></script>
+</body>
+</html>

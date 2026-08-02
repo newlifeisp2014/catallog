@@ -1,0 +1,27 @@
+{
+  "name": "NewLife Admin",
+  "short_name": "NewLife Admin",
+  "description": "لوحة تحكم وتثبيت ألعاب NewLife",
+  "id": "/admin.html",
+  "start_url": "/admin.html",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#090714",
+  "theme_color": "#7c3aed",
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "/icons/admin-icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/admin-icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

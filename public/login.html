@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>تسجيل الدخول — NewLife</title>
+  <meta name="description" content="لوحة تحكم NewLife للمشرفين">
+  <meta name="robots" content="noindex">
+
+  <!-- Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/main.css">
+
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100dvh;
+      padding: 1rem;
+    }
+
+    /* Animated background orbs */
+    .bg-orbs {
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.25;
+      animation: orbFloat 12s ease-in-out infinite;
+    }
+
+    .orb-1 {
+      width: 500px; height: 500px;
+      background: var(--clr-primary);
+      top: -150px; right: -100px;
+      animation-duration: 14s;
+    }
+
+    .orb-2 {
+      width: 350px; height: 350px;
+      background: var(--clr-teal);
+      bottom: -100px; left: -80px;
+      animation-duration: 10s;
+      animation-delay: -5s;
+    }
+
+    .orb-3 {
+      width: 250px; height: 250px;
+      background: var(--clr-gold);
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      animation-duration: 8s;
+      animation-delay: -2s;
+      opacity: 0.1;
+    }
+
+    @keyframes orbFloat {
+      0%, 100% { transform: translateY(0) scale(1); }
+      33%       { transform: translateY(-30px) scale(1.05); }
+      66%       { transform: translateY(15px) scale(0.97); }
+    }
+
+    /* Login Card */
+    .login-card {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 420px;
+      background: var(--clr-glass-bg-2);
+      border: 1px solid var(--clr-border);
+      border-radius: var(--radius-xl);
+      padding: 2.5rem;
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      box-shadow: var(--shadow-lg), var(--shadow-glow);
+      animation: scaleIn 0.5s var(--ease-bounce) both;
+    }
+
+    @keyframes scaleIn {
+      from { opacity: 0; transform: scale(0.9) translateY(20px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    /* Logo */
+    .login-logo {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    .login-logo__icon {
+      width: 72px;
+      height: 72px;
+      background: var(--grad-primary);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      color: white;
+      margin: 0 auto 1rem;
+      box-shadow: var(--shadow-purple);
+      animation: iconPulse 3s ease-in-out infinite;
+    }
+
+    @keyframes iconPulse {
+      0%, 100% { box-shadow: var(--shadow-purple); }
+      50%       { box-shadow: 0 0 40px rgba(124,58,237,0.55), var(--shadow-purple); }
+    }
+
+    .login-logo__title {
+      font-size: 1.6rem;
+      font-weight: 900;
+      background: linear-gradient(135deg, var(--clr-primary-light), var(--clr-gold));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.3rem;
+    }
+
+    .login-logo__sub {
+      font-size: 0.85rem;
+      color: var(--clr-text-muted);
+    }
+
+    /* Form */
+    .login-form {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .input-group label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--clr-text-muted);
+    }
+
+    .input-wrap {
+      position: relative;
+    }
+
+    .input-wrap input {
+      width: 100%;
+      padding: 0.85rem 1rem 0.85rem 2.8rem;
+      background: var(--clr-surface);
+      border: 1px solid var(--clr-border-light);
+      border-radius: var(--radius-md);
+      color: var(--clr-text);
+      font-family: inherit;
+      font-size: 0.95rem;
+      transition: all var(--dur-normal) var(--ease-smooth);
+    }
+
+    /* Fix browser autofill background */
+    .input-wrap input:-webkit-autofill,
+    .input-wrap input:-webkit-autofill:hover,
+    .input-wrap input:-webkit-autofill:focus {
+      -webkit-box-shadow: 0 0 0 1000px var(--clr-surface) inset !important;
+      -webkit-text-fill-color: var(--clr-text) !important;
+      caret-color: var(--clr-text);
+      border-color: var(--clr-border-light);
+      transition: background-color 5000s ease-in-out 0s;
+    }
+
+    .input-wrap input:focus {
+      outline: none;
+      border-color: var(--clr-primary);
+      box-shadow: 0 0 0 3px var(--clr-primary-glow);
+      background: var(--clr-surface-2);
+    }
+
+    .input-wrap input::placeholder { color: var(--clr-text-faint); }
+
+    .input-wrap__icon {
+      position: absolute;
+      left: 0.9rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--clr-text-faint);
+      font-size: 0.88rem;
+      pointer-events: none;
+      transition: color var(--dur-normal);
+    }
+
+    .input-wrap input:focus ~ .input-wrap__icon { color: var(--clr-primary-light); }
+
+    .login-btn {
+      margin-top: 0.5rem;
+      padding: 0.9rem;
+      background: var(--grad-primary);
+      border: none;
+      border-radius: var(--radius-md);
+      color: white;
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      box-shadow: var(--shadow-purple);
+      transition: all var(--dur-normal) var(--ease-smooth);
+    }
+
+    .login-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 40px rgba(124,58,237,0.5);
+    }
+
+    .login-btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+
+    /* Error */
+    .error-msg {
+      display: none;
+      background: var(--clr-danger-bg);
+      border: 1px solid rgba(239,68,68,0.3);
+      border-radius: var(--radius-md);
+      padding: 0.75rem 1rem;
+      font-size: 0.85rem;
+      color: var(--clr-danger);
+      text-align: center;
+      animation: fadeUp 0.25s var(--ease-out) both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Divider */
+    .login-divider {
+      margin-top: 1.5rem;
+      text-align: center;
+    }
+
+    .login-divider a {
+      color: var(--clr-primary-light);
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: opacity var(--dur-fast);
+    }
+
+    .login-divider a:hover { opacity: 0.75; }
+  </style>
+</head>
+<body>
+
+  <!-- Background orbs -->
+  <div class="bg-orbs" aria-hidden="true">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+
+  <!-- Login Card -->
+  <div class="login-card" role="main">
+    <div class="login-logo">
+      <div class="login-logo__icon" aria-hidden="true">
+        <i class="fas fa-gamepad"></i>
+      </div>
+      <h1 class="login-logo__title">NewLife</h1>
+      <p class="login-logo__sub">لوحة تحكم المشرف</p>
+    </div>
+
+    <form class="login-form" id="loginForm" onsubmit="handleLogin(event)" novalidate>
+      <div class="input-group">
+        <label for="username">اسم المستخدم</label>
+        <div class="input-wrap">
+          <input type="text" id="username" placeholder="ادخل اسم المستخدم" required autocomplete="username" autofocus>
+          <i class="fas fa-user input-wrap__icon"></i>
+        </div>
+      </div>
+
+      <div class="input-group">
+        <label for="password">كلمة المرور</label>
+        <div class="input-wrap">
+          <input type="password" id="password" placeholder="••••••••" required autocomplete="current-password">
+          <i class="fas fa-lock input-wrap__icon"></i>
+        </div>
+      </div>
+
+      <div class="error-msg" id="errorMsg" role="alert">
+        <i class="fas fa-exclamation-circle"></i>
+        اسم المستخدم أو كلمة المرور غير صحيحة
+      </div>
+
+      <button type="submit" class="login-btn" id="loginBtn">
+        <i class="fas fa-sign-in-alt"></i>
+        تسجيل الدخول
+      </button>
+    </form>
+
+    <div class="login-divider">
+      <a href="/">← الذهاب للمتجر</a>
+    </div>
+  </div>
+
+  <script>
+    async function handleLogin(e) {
+      e.preventDefault();
+      const btn = document.getElementById('loginBtn');
+      const err = document.getElementById('errorMsg');
+      const u = document.getElementById('username').value.trim();
+      const p = document.getElementById('password').value;
+
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الدخول...';
+      err.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: u, password: p })
+        });
+        const data = await res.json();
+
+        if (res.ok && data.token) {
+          localStorage.setItem('nl_admin_token', data.token);
+          btn.innerHTML = '<i class="fas fa-check"></i> تم الدخول!';
+          setTimeout(() => window.location.href = '/admin.html', 400);
+        } else {
+          throw new Error();
+        }
+      } catch {
+        err.style.display = 'block';
+        document.getElementById('password').value = '';
+        document.getElementById('password').focus();
+      } finally {
+        if (!localStorage.getItem('nl_admin_token')) {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> تسجيل الدخول';
+        }
+      }
+    }
+  </script>
+</body>
+</html>
