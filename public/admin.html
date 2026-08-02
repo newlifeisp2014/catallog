@@ -161,11 +161,15 @@
         <div class="charts-grid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:1.5rem; margin-top:2rem; margin-bottom:2rem;">
           <div style="background:var(--clr-surface); padding:1.5rem; border-radius:var(--radius-lg); border:1px solid var(--clr-border-light);">
             <h3 style="font-size:1.1rem; font-weight:700; margin-bottom:1rem; color:var(--clr-text);">حجم المبيعات (آخر 7 أيام)</h3>
-            <canvas id="salesChart" style="width:100%; height:250px;"></canvas>
+            <div style="position: relative; height: 250px; width: 100%;">
+              <canvas id="salesChart"></canvas>
+            </div>
           </div>
           <div style="background:var(--clr-surface); padding:1.5rem; border-radius:var(--radius-lg); border:1px solid var(--clr-border-light);">
             <h3 style="font-size:1.1rem; font-weight:700; margin-bottom:1rem; color:var(--clr-text);">حالة الطلبات</h3>
-            <canvas id="statusChart" style="width:100%; height:250px;"></canvas>
+            <div style="position: relative; height: 250px; width: 100%;">
+              <canvas id="statusChart"></canvas>
+            </div>
           </div>
         </div>
 
