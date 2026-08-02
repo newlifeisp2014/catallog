@@ -667,7 +667,11 @@ router.post('/refresh-all-images', verifyToken, async (req, res) => {
                     const searchResult = await searchGameImage(searchQuery, game.category);
 
                     let finalImage = searchResult.image;
-                    if (finalImage && !finalImage.includes('placehold.co')) {
+                    
+                    // إذا فشل البحث في جلب صورة، لا تقم باستبدال الصورة القديمة بصورة فارغة (Placeholder)
+                    if (finalImage && finalImage.includes('placehold.co') && game.image && !game.image.includes('placehold.co')) {
+                        finalImage = game.image; // استرجاع الصورة الأصلية
+                    } else if (finalImage && !finalImage.includes('placehold.co')) {
                         const safeName = game.name.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 50);
                         const filename = `${safeName}_${game.id}.jpg`;
                         const localPath = await downloadImage(finalImage, filename);

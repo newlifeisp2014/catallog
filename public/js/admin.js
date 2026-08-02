@@ -728,6 +728,9 @@ function openEditGameModal(id) {
   document.getElementById('gameCategory').value   = game.category;
   document.getElementById('gameHardDrive').value  = game.hardDrive || '1';
   document.getElementById('gameImage').value      = game.image || '';
+  if (document.getElementById('gameTrailer')) {
+      document.getElementById('gameTrailer').value = game.trailer || '';
+  }
   document.getElementById('gameDescription').value = game.description || '';
 
   document.getElementById('gameModalTitle').textContent = 'تعديل اللعبة';
@@ -829,6 +832,7 @@ async function saveGame(e) {
     category:    document.getElementById('gameCategory').value,
     hardDrive:   document.getElementById('gameHardDrive').value,
     image:       document.getElementById('gameImage').value.trim(),
+    trailer:     document.getElementById('gameTrailer') ? document.getElementById('gameTrailer').value.trim() : '',
     description: document.getElementById('gameDescription').value.trim()
   };
 
