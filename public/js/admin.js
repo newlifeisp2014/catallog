@@ -788,18 +788,24 @@ async function refreshGameImage(id) {
   }
 }
 
-async function bulkRefreshImages() {
-  if (!confirm('هل أنت متأكد من رغبتك في فحص وتحديث جميع الألعاب التي لا تمتلك صور أو تريلرات؟ قد تستغرق هذه العملية عدة دقائق بناءً على عدد الألعاب.')) return;
+async function bulkRefreshImages(type) {
+  const typeText = type === 'images' ? 'الصور' : 'الفيديوهات (التريلرات)';
+  if (!confirm(`هل أنت متأكد من رغبتك في فحص وتحديث ${typeText} الناقصة لجميع الألعاب؟ قد تستغرق هذه العملية عدة دقائق.`)) return;
   
-  showToast('جاري تحديث الأغلفة والتريلرات لجميع الألعاب بالخلفية... يرجى الانتظار وعدم إغلاق الصفحة.', 'info');
-  const btn = document.querySelector('button[onclick="bulkRefreshImages()"]');
+  showToast(`جاري تحديث ${typeText} بالخلفية... يرجى الانتظار وعدم إغلاق الصفحة.`, 'info');
+  const btn = document.querySelector(`button[onclick="bulkRefreshImages('${type}')"]`);
+  const originalHtml = btn ? btn.innerHTML : '';
   if (btn) {
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري التحديث...';
   }
 
   try {
-    const res = await fetch('/api/games/refresh-all-images', { method: 'POST' });
+    const res = await fetch('/api/games/refresh-all-images', { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type })
+    });
     const data = await res.json();
     
     if (res.ok && data.success) {
@@ -813,7 +819,7 @@ async function bulkRefreshImages() {
   } finally {
     if (btn) {
       btn.disabled = false;
-      btn.innerHTML = '<i class="fas fa-sync-alt"></i> تحديث النواقص';
+      btn.innerHTML = originalHtml;
     }
   }
 }

@@ -650,9 +650,10 @@ router.post('/refresh-image/:id', verifyToken, async (req, res) => {
     }
 });
 
-// Bulk refresh all images (Protected)
+// Bulk refresh all images/trailers (Protected)
 router.post('/refresh-all-images', verifyToken, async (req, res) => {
     try {
+        const { type } = req.body || {}; // 'images' or 'trailers'
         const result = await pool.query('SELECT id, name, name_ar, category, image, trailer FROM games');
         const games = result.rows;
 
@@ -661,28 +662,33 @@ router.post('/refresh-all-images', verifyToken, async (req, res) => {
 
         for (const game of games) {
             try {
-                if (!game.image || game.image.includes('placehold.co') || !game.trailer) {
+                const needsImage = type === 'images' && (!game.image || game.image.includes('placehold.co'));
+                const needsTrailer = type === 'trailers' && !game.trailer;
+
+                if (needsImage || needsTrailer) {
                     // الاعتماد على الاسم الإنجليزي أولاً للبحث لأنه أدق في يوتيوب وستيم
                     const searchQuery = game.name || game.name_ar;
                     const searchResult = await searchGameImage(searchQuery, game.category);
 
-                    let finalImage = searchResult.image;
-                    
-                    // إذا فشل البحث في جلب صورة، لا تقم باستبدال الصورة القديمة بصورة فارغة (Placeholder)
-                    if (finalImage && finalImage.includes('placehold.co') && game.image && !game.image.includes('placehold.co')) {
-                        finalImage = game.image; // استرجاع الصورة الأصلية
-                    } else if (finalImage && !finalImage.includes('placehold.co')) {
+                    let finalImage = game.image; // الاحتفاظ بالصورة الحالية كافتراضي
+                    let finalTrailer = game.trailer; // الاحتفاظ بالتريلر الحالي كافتراضي
+
+                    if (type === 'images' && searchResult.image && !searchResult.image.includes('placehold.co')) {
                         const safeName = game.name.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 50);
                         const filename = `${safeName}_${game.id}.jpg`;
-                        const localPath = await downloadImage(finalImage, filename);
+                        const localPath = await downloadImage(searchResult.image, filename);
                         if (localPath) {
                             finalImage = localPath;
                         }
                     }
 
+                    if (type === 'trailers' && searchResult.trailer) {
+                        finalTrailer = searchResult.trailer;
+                    }
+
                     await pool.query(
                         'UPDATE games SET image = $1, trailer = $2 WHERE id = $3',
-                        [finalImage, searchResult.trailer || game.trailer || '', game.id]
+                        [finalImage, finalTrailer || '', game.id]
                     );
                     updated++;
                     

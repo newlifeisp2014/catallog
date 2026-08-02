@@ -241,8 +241,11 @@
         <div class="section-header">
           <h2 class="section-title">قائمة الألعاب</h2>
           <div style="display:flex; gap:0.5rem; align-items:center;">
-            <button class="btn btn-outline btn-sm" onclick="bulkRefreshImages()" title="تحديث الصور والفيديوهات (التريلرات) لجميع الألعاب" style="white-space:nowrap;">
-              <i class="fas fa-sync-alt"></i> تحديث النواقص
+            <button class="btn btn-outline btn-sm" onclick="bulkRefreshImages('images')" title="تحديث الصور الناقصة لجميع الألعاب" style="white-space:nowrap;">
+              <i class="fas fa-image"></i> جلب الصور
+            </button>
+            <button class="btn btn-outline btn-sm" onclick="bulkRefreshImages('trailers')" title="تحديث الفيديوهات (التريلرات) لجميع الألعاب" style="white-space:nowrap;">
+              <i class="fas fa-video"></i> جلب الفيديوهات
             </button>
             <div class="admin-search">
               <i class="fas fa-search admin-search__icon"></i>
