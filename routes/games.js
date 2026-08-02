@@ -662,7 +662,15 @@ router.post('/refresh-all-images', verifyToken, async (req, res) => {
 
         for (const game of games) {
             try {
-                const needsImage = type === 'images' && (!game.image || game.image.includes('placehold.co'));
+                let isLocalMissing = false;
+                if (game.image && game.image.startsWith('/images/games/')) {
+                    const fullPath = path.join(__dirname, '..', 'public', game.image);
+                    if (!fs.existsSync(fullPath)) {
+                        isLocalMissing = true;
+                    }
+                }
+
+                const needsImage = type === 'images' && (!game.image || game.image.includes('placehold.co') || isLocalMissing);
                 const needsTrailer = type === 'trailers' && !game.trailer;
 
                 if (needsImage || needsTrailer) {
