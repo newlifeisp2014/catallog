@@ -4,21 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>طلباتي — NewLife</title>
-  <meta name="description" content="تتبع حالة طلباتك من متجر NewLife">
+  <meta name="description" content="تتبع وتعديل طلباتك من متجر NewLife">
 
-  <!-- Fonts & Icons -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-
   <link rel="stylesheet" href="/css/variables.css">
   <link rel="stylesheet" href="/css/main.css">
 
   <style>
-    /* ─── Orders Page Specific ─── */
-    .orders-page { max-width: 680px; margin: 0 auto; padding: var(--space-xl) var(--space-xl) var(--space-3xl); }
+    /* ─── Orders Page ─── */
+    .orders-page { max-width: 700px; margin: 0 auto; padding: var(--space-xl) var(--space-xl) var(--space-3xl); }
 
-    /* Search Card */
     .search-card {
       background: var(--clr-glass-bg);
       border: 1px solid var(--clr-border);
@@ -28,32 +25,12 @@
       margin-bottom: var(--space-xl);
       animation: fadeUp 0.4s var(--ease-out) both;
     }
-
-    .search-card__title {
-      font-size: 1.05rem;
-      font-weight: 700;
-      margin-bottom: var(--space-sm);
-      display: flex;
-      align-items: center;
-      gap: var(--space-sm);
-    }
-
+    .search-card__title { font-size:1.05rem; font-weight:700; margin-bottom:var(--space-sm); display:flex; align-items:center; gap:var(--space-sm); }
     .search-card__title i { color: var(--clr-primary-light); }
-
-    .search-card__subtitle {
-      font-size: 0.85rem;
-      color: var(--clr-text-muted);
-      margin-bottom: var(--space-md);
-    }
-
-    .search-row {
-      display: flex;
-      gap: var(--space-sm);
-    }
-
+    .search-card__subtitle { font-size:0.85rem; color:var(--clr-text-muted); margin-bottom:var(--space-md); }
+    .search-row { display:flex; gap:var(--space-sm); }
     .search-row .form-input { flex: 1; }
 
-    /* Order Cards */
     .order-card {
       background: var(--clr-surface);
       border: 1px solid var(--clr-border-light);
@@ -63,180 +40,179 @@
       animation: fadeUp 0.4s var(--ease-out) both;
       transition: border-color var(--dur-normal), box-shadow var(--dur-normal);
     }
-
-    .order-card:hover {
-      border-color: var(--clr-border);
-      box-shadow: var(--shadow-md);
-    }
-
+    .order-card:hover { border-color: var(--clr-border); box-shadow: var(--shadow-md); }
     .order-card__header {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
+      display:flex; align-items:flex-start; justify-content:space-between;
       padding: var(--space-md) var(--space-lg);
-      border-bottom: 1px solid var(--clr-border-light);
-      gap: var(--space-sm);
+      border-bottom: 1px solid var(--clr-border-light); gap: var(--space-sm);
     }
+    .order-id { font-family:var(--font-en); font-size:0.78rem; color:var(--clr-text-muted); margin-bottom:0.25rem; font-weight:500; }
+    .order-name { font-weight:700; font-size:0.95rem; }
+    .order-date { font-size:0.78rem; color:var(--clr-text-muted); margin-top:0.2rem; }
+    .order-card__body { padding: var(--space-md) var(--space-lg); }
 
-    .order-id {
-      font-family: var(--font-en);
-      font-size: 0.78rem;
-      color: var(--clr-text-muted);
-      margin-bottom: 0.25rem;
-      font-weight: 500;
-    }
-
-    .order-name {
-      font-weight: 700;
-      font-size: 0.95rem;
-    }
-
-    .order-date {
-      font-size: 0.78rem;
-      color: var(--clr-text-muted);
-      margin-top: 0.2rem;
-    }
-
-    .order-card__body {
-      padding: var(--space-md) var(--space-lg);
-    }
-
-    .order-games-list {
-      list-style: none;
-      display: flex;
-      flex-direction: column;
-      gap: 0.4rem;
-      margin-bottom: var(--space-md);
-    }
-
-    .order-games-list li {
-      display: flex;
-      align-items: center;
-      gap: var(--space-sm);
-      font-size: 0.88rem;
-      color: var(--clr-text-muted);
-    }
-
-    .order-games-list li::before {
-      content: '';
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--clr-primary-light);
-      flex-shrink: 0;
-    }
-
+    .order-games-list { list-style:none; display:flex; flex-direction:column; gap:0.4rem; margin-bottom:var(--space-md); }
+    .order-games-list li { display:flex; align-items:center; gap:var(--space-sm); font-size:0.88rem; color:var(--clr-text-muted); }
+    .order-games-list li::before { content:''; width:6px; height:6px; border-radius:50%; background:var(--clr-primary-light); flex-shrink:0; }
     .order-games-list li strong { color: var(--clr-text); }
 
     .order-card__footer {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      display:flex; align-items:center; justify-content:space-between;
       padding: var(--space-sm) var(--space-lg);
       background: var(--clr-surface-2);
       border-top: 1px solid var(--clr-border-light);
     }
+    .order-total { font-size:0.95rem; font-weight:800; color:var(--clr-gold); }
+    .order-total span { font-size:0.75rem; font-weight:500; color:var(--clr-text-muted); display:block; }
 
-    .order-total {
-      font-size: 0.95rem;
-      font-weight: 800;
-      color: var(--clr-gold);
+    /* Timeline */
+    .order-timeline { display:flex; align-items:center; gap:0.3rem; padding:var(--space-sm) 0; }
+    .timeline-step { display:flex; flex-direction:column; align-items:center; gap:0.2rem; flex:1; position:relative; }
+    .timeline-step:not(:last-child)::after { content:''; position:absolute; top:10px; left:0; right:-50%; height:2px; background:var(--clr-surface-3); z-index:0; }
+    .timeline-step.done:not(:last-child)::after { background: var(--clr-primary); }
+    .timeline-dot { width:20px; height:20px; border-radius:50%; background:var(--clr-surface-3); display:flex; align-items:center; justify-content:center; font-size:0.55rem; color:transparent; position:relative; z-index:1; transition:all var(--dur-normal); }
+    .timeline-step.done .timeline-dot { background:var(--clr-primary); color:white; }
+    .timeline-step.current .timeline-dot { background:var(--clr-gold); color:#07050f; box-shadow:0 0 12px var(--clr-gold-glow); }
+    .timeline-label { font-size:0.62rem; color:var(--clr-text-faint); text-align:center; }
+    .timeline-step.done .timeline-label, .timeline-step.current .timeline-label { color: var(--clr-text-muted); }
+
+    .state-view { text-align:center; padding:var(--space-3xl) var(--space-xl); animation:fadeUp 0.4s var(--ease-out) both; }
+    .state-view__icon { font-size:3rem; margin-bottom:var(--space-md); opacity:0.25; }
+    .state-view__title { font-size:1.1rem; font-weight:700; margin-bottom:var(--space-sm); }
+    .state-view__text { color:var(--clr-text-muted); font-size:0.9rem; }
+
+    /* ═══ Edit Order Modal ═══ */
+    .eom-overlay {
+      position:fixed; inset:0; background:rgba(7,5,15,0.88); backdrop-filter:blur(10px);
+      z-index:500; display:flex; align-items:center; justify-content:center; padding:1rem;
+      opacity:0; pointer-events:none; transition:opacity 0.25s ease;
     }
+    .eom-overlay.active { opacity:1; pointer-events:all; }
 
-    .order-total span {
-      font-size: 0.75rem;
-      font-weight: 500;
-      color: var(--clr-text-muted);
-      display: block;
+    .eom-modal {
+      background: var(--clr-surface);
+      border: 1px solid rgba(124,58,237,0.3);
+      border-radius: var(--radius-xl);
+      width: 100%; max-width: 720px;
+      max-height: 90vh; overflow: hidden;
+      display: flex; flex-direction: column;
+      box-shadow: 0 32px 80px rgba(0,0,0,0.7);
+      transform: translateY(20px) scale(0.97);
+      transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
     }
+    .eom-overlay.active .eom-modal { transform: translateY(0) scale(1); }
 
-    /* Timeline status indicator */
-    .order-timeline {
-      display: flex;
-      align-items: center;
-      gap: 0.3rem;
-      padding: var(--space-sm) 0;
+    .eom-header {
+      display:flex; align-items:center; justify-content:space-between;
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--clr-border-light);
+      flex-shrink: 0;
     }
+    .eom-title { font-size:1.05rem; font-weight:800; display:flex; align-items:center; gap:0.5rem; }
+    .eom-close {
+      background:rgba(255,255,255,0.06); border:none; border-radius:8px; color:var(--clr-text-muted);
+      width:32px; height:32px; cursor:pointer; display:flex; align-items:center; justify-content:center;
+      transition:all 0.15s;
+    }
+    .eom-close:hover { background:rgba(239,68,68,0.15); color:var(--clr-danger); }
 
-    .timeline-step {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0.2rem;
+    .eom-body {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
       flex: 1;
-      position: relative;
+      overflow: hidden;
     }
 
-    .timeline-step:not(:last-child)::after {
-      content: '';
-      position: absolute;
-      top: 10px;
-      left: 0;
-      right: -50%;
-      height: 2px;
-      background: var(--clr-surface-3);
-      z-index: 0;
+    /* Panel: ألعاب الطلب الحالي */
+    .eom-panel {
+      display: flex; flex-direction: column;
+      overflow: hidden;
+      border-left: 1px solid var(--clr-border-light);
     }
-
-    .timeline-step.done:not(:last-child)::after {
-      background: var(--clr-primary);
+    .eom-panel:last-child { border-left: none; }
+    .eom-panel-title {
+      padding: 0.85rem 1.25rem;
+      font-size: 0.82rem; font-weight: 700;
+      color: var(--clr-text-muted);
+      border-bottom: 1px solid var(--clr-border-light);
+      background: var(--clr-surface-2);
+      flex-shrink: 0;
     }
+    .eom-panel-title span { color:var(--clr-gold); font-weight:800; }
+    .eom-panel-body { flex:1; overflow-y:auto; padding:0.75rem; display:flex; flex-direction:column; gap:0.5rem; }
 
-    .timeline-dot {
-      width: 20px;
-      height: 20px;
-      border-radius: 50%;
-      background: var(--clr-surface-3);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.55rem;
-      color: transparent;
-      position: relative;
-      z-index: 1;
-      transition: all var(--dur-normal);
+    /* الكتالوك — بحث */
+    .eom-search {
+      position:relative; flex-shrink:0;
+      padding: 0.75rem;
+      border-bottom: 1px solid var(--clr-border-light);
     }
-
-    .timeline-step.done .timeline-dot {
-      background: var(--clr-primary);
-      color: white;
+    .eom-search input {
+      width:100%; background:var(--clr-surface-2); border:1px solid var(--clr-border);
+      border-radius:var(--radius-md); padding:0.55rem 0.85rem 0.55rem 2.2rem;
+      color:var(--clr-text); font-family:var(--font-ar); font-size:0.85rem; outline:none;
     }
+    .eom-search input:focus { border-color:var(--clr-primary-light); }
+    .eom-search i { position:absolute; right:1.5rem; top:50%; transform:translateY(-50%); color:var(--clr-text-muted); font-size:0.8rem; }
 
-    .timeline-step.current .timeline-dot {
-      background: var(--clr-gold);
-      color: #07050f;
-      box-shadow: 0 0 12px var(--clr-gold-glow);
+    /* بطاقة لعبة في الكتالوك */
+    .eom-catalog-item {
+      display:flex; align-items:center; gap:0.65rem;
+      padding:0.6rem 0.75rem;
+      background:var(--clr-surface-2); border:1px solid var(--clr-border-light);
+      border-radius:var(--radius-md); cursor:pointer;
+      transition:all 0.15s;
     }
+    .eom-catalog-item:hover { border-color:var(--clr-primary); background:rgba(124,58,237,0.08); }
+    .eom-catalog-item.added { border-color:var(--clr-success); background:rgba(34,197,94,0.08); cursor:default; }
+    .eom-catalog-item img { width:36px; height:48px; object-fit:cover; border-radius:4px; flex-shrink:0; }
+    .eom-catalog-info { flex:1; min-width:0; }
+    .eom-catalog-name { font-size:0.82rem; font-weight:700; color:var(--clr-text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .eom-catalog-meta { font-size:0.72rem; color:var(--clr-text-muted); }
+    .eom-catalog-price { font-size:0.8rem; font-weight:800; color:var(--clr-gold); white-space:nowrap; }
+    .eom-add-icon { color:var(--clr-success); font-size:0.9rem; flex-shrink:0; }
+    .eom-catalog-item.added .eom-add-icon { color:var(--clr-success); }
 
-    .timeline-label {
-      font-size: 0.62rem;
-      color: var(--clr-text-faint);
-      text-align: center;
+    /* بطاقة لعبة في الطلب */
+    .eom-order-item {
+      display:flex; align-items:center; gap:0.65rem;
+      padding:0.6rem 0.75rem;
+      background:rgba(124,58,237,0.07); border:1px solid rgba(124,58,237,0.2);
+      border-radius:var(--radius-md);
     }
-
-    .timeline-step.done .timeline-label,
-    .timeline-step.current .timeline-label { color: var(--clr-text-muted); }
-
-    /* State Views */
-    .state-view {
-      text-align: center;
-      padding: var(--space-3xl) var(--space-xl);
-      animation: fadeUp 0.4s var(--ease-out) both;
+    .eom-order-item img { width:36px; height:48px; object-fit:cover; border-radius:4px; flex-shrink:0; }
+    .eom-order-info { flex:1; min-width:0; }
+    .eom-order-name { font-size:0.82rem; font-weight:700; color:var(--clr-text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .eom-order-meta { font-size:0.72rem; color:var(--clr-text-muted); }
+    .eom-order-price { font-size:0.8rem; font-weight:800; color:var(--clr-gold); white-space:nowrap; }
+    .eom-remove-btn {
+      background:rgba(239,68,68,0.12); border:none; border-radius:6px;
+      color:var(--clr-danger); width:28px; height:28px; cursor:pointer;
+      display:flex; align-items:center; justify-content:center; font-size:0.75rem;
+      transition:all 0.15s; flex-shrink:0;
     }
+    .eom-remove-btn:hover { background:var(--clr-danger); color:#fff; transform:scale(1.1); }
 
-    .state-view__icon {
-      font-size: 3rem;
-      margin-bottom: var(--space-md);
-      opacity: 0.25;
+    .eom-empty { text-align:center; padding:2rem 1rem; color:var(--clr-text-faint); font-size:0.85rem; }
+    .eom-empty i { font-size:2rem; opacity:0.3; margin-bottom:0.5rem; display:block; }
+
+    .eom-footer {
+      padding: 1rem 1.5rem;
+      border-top: 1px solid var(--clr-border-light);
+      display:flex; align-items:center; justify-content:space-between; gap:1rem;
+      flex-shrink:0; background:var(--clr-surface-2);
     }
+    .eom-total { font-size:1rem; font-weight:900; color:var(--clr-gold); }
+    .eom-total small { font-size:0.72rem; font-weight:500; color:var(--clr-text-muted); display:block; }
+    .eom-footer-btns { display:flex; gap:0.6rem; }
 
-    .state-view__title {
-      font-size: 1.1rem;
-      font-weight: 700;
-      margin-bottom: var(--space-sm);
+    @media (max-width: 580px) {
+      .eom-body { grid-template-columns: 1fr; }
+      .eom-panel { max-height: 45vh; }
+      .eom-panel:first-child { border-left:none; border-bottom:1px solid var(--clr-border-light); }
+      .orders-page { padding: var(--space-md); }
     }
-
-    .state-view__text { color: var(--clr-text-muted); font-size: 0.9rem; }
   </style>
 </head>
 <body>
@@ -244,9 +220,7 @@
   <!-- Navigation -->
   <nav class="nl-nav" role="navigation">
     <div class="nl-nav__brand" onclick="window.location.href='/'">
-      <div class="nl-nav__brand-icon" aria-hidden="true">
-        <i class="fas fa-gamepad"></i>
-      </div>
+      <div class="nl-nav__brand-icon" aria-hidden="true"><i class="fas fa-gamepad"></i></div>
       NewLife
     </div>
     <div class="nl-nav__actions">
@@ -260,38 +234,27 @@
   <main role="main">
     <div class="orders-page">
 
-      <!-- Page Title -->
       <div style="margin-bottom:var(--space-lg);" class="animate-fade-up">
         <h1 style="font-size:1.6rem;font-weight:900;margin-bottom:0.3rem;">
           <i class="fas fa-receipt" style="color:var(--clr-primary-light);margin-left:0.5rem;font-size:1.2rem;"></i>
           سجل الطلبات
         </h1>
-        <p style="color:var(--clr-text-muted);font-size:0.88rem;">أدخل رقم هاتفك لعرض طلباتك ومتابعة حالتها</p>
+        <p style="color:var(--clr-text-muted);font-size:0.88rem;">أدخل رقم هاتفك لعرض طلباتك ومتابعة حالتها أو تعديلها</p>
       </div>
 
       <!-- Search Card -->
       <div class="search-card">
-        <div class="search-card__title">
-          <i class="fas fa-search"></i> البحث عن طلباتك
-        </div>
+        <div class="search-card__title"><i class="fas fa-search"></i> البحث عن طلباتك</div>
         <div class="search-card__subtitle">أدخل رقم الهاتف الذي استخدمته عند الطلب</div>
         <div class="search-row">
-          <input
-            type="tel"
-            id="searchPhone"
-            class="form-input"
-            placeholder="07xxxxxxxxx"
-            autocomplete="tel"
-            onkeydown="if(event.key==='Enter') fetchOrders()"
-          >
+          <input type="tel" id="searchPhone" class="form-input" placeholder="07xxxxxxxxx"
+            autocomplete="tel" onkeydown="if(event.key==='Enter') fetchOrders()">
           <button class="btn btn-primary" onclick="fetchOrders()" id="searchBtn">
-            <i class="fas fa-search"></i>
-            بحث
+            <i class="fas fa-search"></i> بحث
           </button>
         </div>
       </div>
 
-      <!-- Orders Container -->
       <div id="ordersContainer">
         <div class="state-view">
           <div class="state-view__icon"><i class="fas fa-inbox"></i></div>
@@ -306,29 +269,92 @@
   <!-- Toast Container -->
   <div class="toast-container" id="toastContainer" aria-live="assertive"></div>
 
+  <!-- ═══ Edit Order Modal ═══ -->
+  <div class="eom-overlay" id="eomOverlay" onclick="handleEOMClick(event)" role="dialog" aria-modal="true">
+    <div class="eom-modal">
+
+      <div class="eom-header">
+        <div class="eom-title">
+          <i class="fas fa-edit" style="color:var(--clr-gold);"></i>
+          تعديل الطلب <span id="eomOrderId" style="font-size:0.8rem;color:var(--clr-text-muted);font-weight:500;"></span>
+        </div>
+        <button class="eom-close" onclick="closeEOM()"><i class="fas fa-times"></i></button>
+      </div>
+
+      <div class="eom-body">
+
+        <!-- يسار: الكتالوك -->
+        <div class="eom-panel" style="flex-direction:column;">
+          <div class="eom-panel-title">
+            <i class="fas fa-gamepad" style="margin-left:0.4rem;color:var(--clr-primary-light);"></i>
+            الكتالوك — اضغط لإضافة لعبة
+          </div>
+          <div class="eom-search">
+            <i class="fas fa-search"></i>
+            <input type="text" id="eomSearchInput" placeholder="ابحث عن لعبة..." oninput="renderEOMCatalog()">
+          </div>
+          <div class="eom-panel-body" id="eomCatalogList"></div>
+        </div>
+
+        <!-- يمين: ألعاب الطلب -->
+        <div class="eom-panel">
+          <div class="eom-panel-title">
+            <i class="fas fa-shopping-basket" style="margin-left:0.4rem;color:var(--clr-gold);"></i>
+            ألعاب طلبك الحالية — <span id="eomGameCount">0</span> لعبة
+          </div>
+          <div class="eom-panel-body" id="eomOrderList"></div>
+        </div>
+
+      </div>
+
+      <div class="eom-footer">
+        <div class="eom-total">
+          <small>المجموع الكلي</small>
+          <span id="eomTotalDisplay">0 دينار</span>
+        </div>
+        <div class="eom-footer-btns">
+          <button class="btn btn-ghost" onclick="closeEOM()">إلغاء</button>
+          <button class="btn btn-gold" id="eomSaveBtn" onclick="saveOrderChanges()">
+            <i class="fas fa-save"></i>
+            حفظ التعديلات
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
   <script>
+    /* ══════════════════════════════════════════
+       State
+    ══════════════════════════════════════════ */
     const STATUS_MAP = {
-      pending:   { label: 'قيد الانتظار', cls: 'badge-pending', steps: 0 },
+      pending:   { label: 'قيد الانتظار', cls: 'badge-pending',   steps: 0 },
       confirmed: { label: 'مؤكد',          cls: 'badge-confirmed', steps: 1 },
       delivered: { label: 'مكتمل',         cls: 'badge-delivered', steps: 2 },
       cancelled: { label: 'ملغي',          cls: 'badge-cancelled', steps: -1 }
     };
-
     const TIMELINE_STEPS = [
       { label: 'استلام', icon: 'fa-inbox' },
-      { label: 'تأكيد', icon: 'fa-check' },
-      { label: 'مكتمل', icon: 'fa-flag' }
+      { label: 'تأكيد',  icon: 'fa-check' },
+      { label: 'مكتمل',  icon: 'fa-flag'  }
     ];
 
+    let allCatalogGames = []; // كل ألعاب الكتالوك
+    let eomOrderId      = ''; // رقم الطلب قيد التعديل
+    let eomPhone        = ''; // رقم هاتف الزبون
+    let eomGames        = []; // الألعاب الحالية في الطلب
+
+    /* ══════════════════════════════════════════
+       Timeline
+    ══════════════════════════════════════════ */
     function buildTimeline(status) {
       const s = STATUS_MAP[status] || STATUS_MAP.pending;
       if (status === 'cancelled') return '';
-
       return `<div class="order-timeline">
         ${TIMELINE_STEPS.map((step, i) => {
-          const done = i < s.steps;
-          const current = i === s.steps;
-          return `<div class="timeline-step ${done ? 'done' : ''} ${current ? 'current' : ''}">
+          const done = i < s.steps, current = i === s.steps;
+          return `<div class="timeline-step ${done?'done':''} ${current?'current':''}">
             <div class="timeline-dot"><i class="fas ${step.icon}"></i></div>
             <div class="timeline-label">${step.label}</div>
           </div>`;
@@ -336,12 +362,12 @@
       </div>`;
     }
 
+    /* ══════════════════════════════════════════
+       Fetch Orders
+    ══════════════════════════════════════════ */
     async function fetchOrders() {
       const phone = document.getElementById('searchPhone').value.trim();
-      if (!phone) {
-        showToast('يرجى إدخال رقم الهاتف', 'error');
-        return;
-      }
+      if (!phone) { showToast('يرجى إدخال رقم الهاتف', 'error'); return; }
 
       const container = document.getElementById('ordersContainer');
       const btn = document.getElementById('searchBtn');
@@ -352,7 +378,7 @@
 
       try {
         const res = await fetch('/api/orders?phone=' + encodeURIComponent(phone));
-        if (!res.ok) throw new Error('Server error');
+        if (!res.ok) throw new Error();
         const data = await res.json();
         const orders = data.data || [];
 
@@ -367,21 +393,20 @@
         }
 
         container.innerHTML = orders.map((order, idx) => {
-          const orderId      = order.orderId || order.order_id || order.id;
-          const customerName = order.customerName || order.customer_name || 'زبون';
-          const totalPrice   = parseFloat(order.totalPrice || order.total_price || order.total || 0);
-          const status       = order.status || 'pending';
-          const s            = STATUS_MAP[status] || STATUS_MAP.pending;
-          const dateObj      = new Date(order.createdAt || order.created_at || order.date);
-          const dateStr      = isNaN(dateObj.getTime()) ? 'اليوم' : dateObj.toLocaleDateString('ar-IQ', { year: 'numeric', month: 'long', day: 'numeric' });
+          const orderId   = order.orderId || order.order_id || order.id;
+          const custName  = order.customerName || order.customer_name || 'زبون';
+          const total     = parseFloat(order.totalPrice || 0);
+          const status    = order.status || 'pending';
+          const s         = STATUS_MAP[status] || STATUS_MAP.pending;
+          const dateObj   = new Date(order.createdAt || order.created_at || order.date);
+          const dateStr   = isNaN(dateObj.getTime()) ? 'اليوم' : dateObj.toLocaleDateString('ar-IQ', { year:'numeric', month:'long', day:'numeric' });
+          const isPending = status === 'pending';
 
-          const isPending    = status === 'pending';
-
-          return `<div class="order-card" style="animation-delay:${idx * 0.07}s">
+          return `<div class="order-card" style="animation-delay:${idx*0.07}s">
             <div class="order-card__header">
               <div>
                 <div class="order-id">#${orderId}</div>
-                <div class="order-name">${customerName}</div>
+                <div class="order-name">${custName}</div>
                 <div class="order-date"><i class="far fa-calendar-alt" style="margin-left:4px;"></i>${dateStr}</div>
               </div>
               <span class="badge ${s.cls}">${s.label}</span>
@@ -390,30 +415,39 @@
             <div class="order-card__body">
               ${buildTimeline(status)}
               <ul class="order-games-list">
-                ${(order.games || []).map(g =>
-                  `<li><strong>${g.name_ar || g.nameAr || g.name}</strong> — هارد ${g.hardDrive || '1'}</li>`
+                ${(order.games||[]).map(g =>
+                  `<li><strong>${g.name_ar||g.nameAr||g.name}</strong> — هارد ${g.hardDrive||'1'}</li>`
                 ).join('')}
               </ul>
-              ${order.notes ? `<div style="font-size:0.82rem;color:var(--clr-text-muted);margin-top:0.5rem;background:var(--clr-surface-2);padding:0.5rem;border-radius:var(--radius-sm);"><i class="fas fa-sticky-note" style="margin-left:4px;"></i>الملاحظات: ${order.notes}</div>` : ''}
+              ${order.notes ? `<div style="font-size:0.82rem;color:var(--clr-text-muted);margin-top:0.5rem;background:var(--clr-surface-2);padding:0.5rem;border-radius:var(--radius-sm);"><i class="fas fa-sticky-note" style="margin-left:4px;"></i>ملاحظات: ${order.notes}</div>` : ''}
             </div>
 
             <div class="order-card__footer">
               <div class="order-total">
                 <span>المجموع</span>
-                ${totalPrice.toLocaleString()} دينار
+                ${total.toLocaleString()} دينار
               </div>
               <div style="display:flex;gap:0.4rem;align-items:center;">
                 ${isPending ? `
-                  <button class="btn btn-ghost btn-sm" onclick="editCustomerOrder('${orderId}', '${customerName}', '${(order.notes || '').replace(/'/g, "\\'")}')" style="font-size:0.78rem;color:var(--clr-gold);">
-                    <i class="fas fa-edit"></i> تعديل
+                  <button class="btn btn-gold btn-sm"
+                    onclick="openEOM('${orderId}', '${phone}', ${JSON.stringify((order.games||[]).map(g=>({
+                      id: g.id||'', name: g.name||'', nameAr: g.name_ar||g.nameAr||g.name||'',
+                      price: g.price||0, hardDrive: g.hardDrive||g.hard_drive||'1', size: g.size||'', image: g.image||''
+                    }))).replace(/"/g,'&quot;')})"
+                    style="font-size:0.82rem;">
+                    <i class="fas fa-edit"></i> تعديل الطلب
                   </button>
-                  <button class="btn btn-danger btn-sm" onclick="cancelCustomerOrder('${orderId}')" style="font-size:0.78rem;">
+                  <button class="btn btn-danger btn-sm"
+                    onclick="cancelCustomerOrder('${orderId}')"
+                    style="font-size:0.78rem;">
                     <i class="fas fa-times"></i> إلغاء
                   </button>
-                ` : ''}
-                <span style="font-size:0.78rem;color:var(--clr-text-muted);">
-                  ${(order.games || []).length} لعبة
-                </span>
+                ` : `
+                  <span style="font-size:0.78rem;color:var(--clr-text-muted);">
+                    ${isPending?'':'لا يمكن التعديل بعد التأكيد'}
+                  </span>
+                `}
+                <span style="font-size:0.78rem;color:var(--clr-text-muted);">${(order.games||[]).length} لعبة</span>
               </div>
             </div>
           </div>`;
@@ -432,26 +466,9 @@
       }
     }
 
-    async function editCustomerOrder(orderId, currentName, currentNotes) {
-      const newName = prompt('تعديل الاسم الكامل للطلب:', currentName);
-      if (newName === null) return;
-      const newNotes = prompt('تعديل الملاحظات:', currentNotes || '');
-      if (newNotes === null) return;
-
-      try {
-        const res = await fetch(`/api/orders/${orderId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ customerName: newName.trim(), notes: newNotes.trim() })
-        });
-        if (!res.ok) throw new Error();
-        showToast('تم تعديل طلبك بنجاح! ✨');
-        fetchOrders();
-      } catch (e) {
-        showToast('تعذر تعديل الطلب', 'error');
-      }
-    }
-
+    /* ══════════════════════════════════════════
+       Cancel Order
+    ══════════════════════════════════════════ */
     async function cancelCustomerOrder(orderId) {
       if (!confirm('هل أنت متأكد من إلغاء هذا الطلب؟')) return;
       try {
@@ -464,14 +481,198 @@
       }
     }
 
+    /* ══════════════════════════════════════════
+       Edit Order Modal — Open / Close
+    ══════════════════════════════════════════ */
+    async function openEOM(orderId, phone, currentGames) {
+      eomOrderId = orderId;
+      eomPhone   = phone;
+      eomGames   = JSON.parse(JSON.stringify(currentGames)); // deep copy
+
+      document.getElementById('eomOrderId').textContent = '#' + orderId;
+      document.getElementById('eomSearchInput').value   = '';
+
+      // جلب الكتالوك إذا لم يُجلَب بعد
+      if (allCatalogGames.length === 0) {
+        try {
+          const res = await fetch('/api/games');
+          const data = await res.json();
+          allCatalogGames = (data.data || []).filter(g => g.available !== false);
+        } catch(e) {
+          showToast('تعذر تحميل الكتالوك', 'error');
+        }
+      }
+
+      renderEOMCatalog();
+      renderEOMOrder();
+
+      document.getElementById('eomOverlay').classList.add('active');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeEOM() {
+      document.getElementById('eomOverlay').classList.remove('active');
+      document.body.style.overflow = '';
+    }
+
+    function handleEOMClick(e) {
+      if (e.target.id === 'eomOverlay') closeEOM();
+    }
+
+    /* ══════════════════════════════════════════
+       Render Catalog (يسار)
+    ══════════════════════════════════════════ */
+    function renderEOMCatalog() {
+      const q    = document.getElementById('eomSearchInput').value.trim().toLowerCase();
+      const list = document.getElementById('eomCatalogList');
+
+      const filtered = allCatalogGames.filter(g => {
+        if (!q) return true;
+        return (g.name||'').toLowerCase().includes(q) ||
+               (g.nameAr||'').toLowerCase().includes(q);
+      });
+
+      if (filtered.length === 0) {
+        list.innerHTML = `<div class="eom-empty"><i class="fas fa-search"></i>لا توجد نتائج</div>`;
+        return;
+      }
+
+      list.innerHTML = filtered.map(g => {
+        const alreadyIn = eomGames.some(og => og.id === g.id);
+        return `<div class="eom-catalog-item ${alreadyIn ? 'added' : ''}"
+          onclick="${alreadyIn ? '' : `addGameToOrder('${g.id}')`}">
+          <img src="${g.image||''}" alt="${g.nameAr||g.name}"
+            onerror="this.src='https://placehold.co/36x48/110e20/7c3aed?text=🎮'">
+          <div class="eom-catalog-info">
+            <div class="eom-catalog-name">${g.nameAr||g.name}</div>
+            <div class="eom-catalog-meta">هارد ${g.hardDrive||'1'} • ${g.size||''}</div>
+          </div>
+          <div class="eom-catalog-price">${Number(g.price).toLocaleString()}</div>
+          <i class="fas ${alreadyIn ? 'fa-check' : 'fa-plus-circle'} eom-add-icon"
+            style="color:${alreadyIn ? 'var(--clr-success)' : 'var(--clr-primary-light)'}"></i>
+        </div>`;
+      }).join('');
+    }
+
+    /* ══════════════════════════════════════════
+       Render Order Games (يمين)
+    ══════════════════════════════════════════ */
+    function renderEOMOrder() {
+      const list = document.getElementById('eomOrderList');
+      document.getElementById('eomGameCount').textContent = eomGames.length;
+
+      const total = eomGames.reduce((s, g) => s + (parseFloat(g.price)||0), 0);
+      document.getElementById('eomTotalDisplay').textContent = total.toLocaleString() + ' دينار';
+
+      if (eomGames.length === 0) {
+        list.innerHTML = `<div class="eom-empty"><i class="fas fa-shopping-basket"></i>لا توجد ألعاب في الطلب<br><small>أضف من الكتالوك على اليسار</small></div>`;
+        return;
+      }
+
+      list.innerHTML = eomGames.map((g, idx) => `
+        <div class="eom-order-item">
+          <img src="${g.image||''}" alt="${g.nameAr||g.name}"
+            onerror="this.src='https://placehold.co/36x48/110e20/7c3aed?text=🎮'">
+          <div class="eom-order-info">
+            <div class="eom-order-name">${g.nameAr||g.name}</div>
+            <div class="eom-order-meta">هارد ${g.hardDrive||'1'} • ${g.size||''}</div>
+          </div>
+          <div class="eom-order-price">${Number(g.price).toLocaleString()}</div>
+          <button class="eom-remove-btn" onclick="removeGameFromOrder(${idx})" title="حذف من الطلب">
+            <i class="fas fa-trash-alt"></i>
+          </button>
+        </div>
+      `).join('');
+    }
+
+    /* ══════════════════════════════════════════
+       Add / Remove Game
+    ══════════════════════════════════════════ */
+    function addGameToOrder(gameId) {
+      const game = allCatalogGames.find(g => g.id === gameId);
+      if (!game) return;
+      if (eomGames.some(g => g.id === gameId)) {
+        showToast('هذه اللعبة موجودة في طلبك مسبقاً', 'info'); return;
+      }
+      eomGames.push({
+        id:       game.id,
+        name:     game.name,
+        nameAr:   game.nameAr || game.name,
+        name_ar:  game.nameAr || game.name,
+        price:    game.price,
+        hardDrive: game.hardDrive || '1',
+        size:     game.size || '',
+        image:    game.image || ''
+      });
+      renderEOMCatalog();
+      renderEOMOrder();
+      showToast(`✅ تم إضافة "${game.nameAr||game.name}"`, 'success');
+    }
+
+    function removeGameFromOrder(idx) {
+      const name = eomGames[idx]?.nameAr || eomGames[idx]?.name || 'اللعبة';
+      eomGames.splice(idx, 1);
+      renderEOMCatalog();
+      renderEOMOrder();
+      showToast(`🗑️ تم حذف "${name}" من طلبك`);
+    }
+
+    /* ══════════════════════════════════════════
+       Save Order Changes
+    ══════════════════════════════════════════ */
+    async function saveOrderChanges() {
+      if (eomGames.length === 0) {
+        showToast('يجب أن يحتوي طلبك على لعبة واحدة على الأقل', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('eomSaveBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الحفظ...';
+
+      try {
+        const res = await fetch(`/api/orders/${eomOrderId}/customer-update`, {
+          method:  'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ phone: eomPhone, games: eomGames })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          closeEOM();
+          showToast('✅ تم تعديل طلبك بنجاح!', 'success');
+          fetchOrders(); // تحديث القائمة
+        } else {
+          showToast(data.error || 'حدث خطأ أثناء الحفظ', 'error');
+        }
+      } catch(e) {
+        showToast('فشل الاتصال بالخادم', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-save"></i> حفظ التعديلات';
+      }
+    }
+
+    /* ══════════════════════════════════════════
+       Keyboard shortcut
+    ══════════════════════════════════════════ */
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && document.getElementById('eomOverlay').classList.contains('active')) closeEOM();
+    });
+
+    /* ══════════════════════════════════════════
+       Toast
+    ══════════════════════════════════════════ */
     function showToast(msg, type = 'success') {
       const c = document.getElementById('toastContainer');
       const t = document.createElement('div');
       t.className = `toast toast--${type}`;
-      t.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i> ${msg}`;
+      const icons = { success:'fa-check-circle', error:'fa-exclamation-circle', info:'fa-info-circle' };
+      t.innerHTML = `<i class="fas ${icons[type]||'fa-check-circle'}"></i> ${msg}`;
       c.appendChild(t);
       requestAnimationFrame(() => { requestAnimationFrame(() => t.classList.add('show')); });
-      setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 400); }, 3000);
+      setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 400); }, 3200);
     }
   </script>
 </body>

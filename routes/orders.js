@@ -226,6 +226,60 @@ router.put('/:id/status', verifyToken, async (req, res) => {
     await updateOrderLogic(req.params.id, { status: req.body.status }, res);
 });
 
+// ─── تعديل ألعاب الطلب من قِبَل الزبون (بدون أدمن) ───
+// الزبون يقدر يضيف/يمسح ألعاب من طلبه pending فقط
+// يتحقق برقم الهاتف (بدون توكن أدمن)
+router.put('/:id/customer-update', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { phone, games } = req.body;
+
+        if (!phone || !games || !Array.isArray(games)) {
+            return res.status(400).json({ error: 'البيانات ناقصة' });
+        }
+
+        if (games.length === 0) {
+            return res.status(400).json({ error: 'يجب أن يحتوي الطلب على لعبة واحدة على الأقل' });
+        }
+
+        // التحقق من وجود الطلب وأنه للزبون نفسه
+        const checkResult = await pool.query(
+            'SELECT status, customer_phone FROM orders WHERE order_id = $1',
+            [id]
+        );
+
+        if (checkResult.rows.length === 0) {
+            return res.status(404).json({ error: 'الطلب غير موجود' });
+        }
+
+        const order = checkResult.rows[0];
+
+        // التحقق من رقم الهاتف
+        if (order.customer_phone !== phone.trim()) {
+            return res.status(403).json({ error: 'رقم الهاتف غير صحيح' });
+        }
+
+        // فقط الطلبات pending يمكن تعديلها
+        if (order.status !== 'pending') {
+            return res.status(400).json({ error: 'لا يمكن تعديل الطلب بعد تأكيده من قِبَل المتجر' });
+        }
+
+        // حساب السعر الكلي
+        const totalPrice = games.reduce((sum, g) => sum + (parseFloat(g.price) || 0), 0);
+
+        // تحديث الطلب
+        await pool.query(
+            'UPDATE orders SET games = $1, total_price = $2, updated_at = NOW() WHERE order_id = $3',
+            [JSON.stringify(games), totalPrice, id]
+        );
+
+        res.json({ success: true, totalPrice, message: 'تم تعديل طلبك بنجاح' });
+    } catch (error) {
+        console.error('Error updating order by customer:', error);
+        res.status(500).json({ error: 'حدث خطأ في السيرفر' });
+    }
+});
+
 // Cancel order (Customer)
 router.post('/:id/cancel', async (req, res) => {
     try {
