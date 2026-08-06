@@ -655,26 +655,52 @@ function editOrderModal(id) {
   const currentTotal = parseFloat(o.totalPrice || o.total_price || o.total || 0);
   const currentDiscount = parseFloat(o.discount || 0);
 
-  const newName = prompt('تعديل اسم الزبون:', currentName);
-  if (newName === null) return;
+  const content = `
+    <div class="order-detail-section">
+      <h4>تعديل بيانات الطلب</h4>
+      <div class="form-group" style="margin-top:1rem;">
+        <label>اسم الزبون</label>
+        <input type="text" id="editOrderName" class="form-input" value="${currentName.replace(/"/g, '&quot;')}">
+      </div>
+      <div class="form-group">
+        <label>رقم الهاتف</label>
+        <input type="text" id="editOrderPhone" class="form-input" value="${currentPhone.replace(/"/g, '&quot;')}">
+      </div>
+      <div class="form-group">
+        <label>المبلغ الكلي والخصم</label>
+        <div style="display:flex; gap:10px;">
+          <input type="number" id="editOrderTotal" class="form-input" value="${currentTotal}" placeholder="المبلغ الكلي">
+          <input type="number" id="editOrderDiscount" class="form-input" value="${currentDiscount}" placeholder="الخصم (إن وجد)" style="border-color:var(--clr-gold);">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>الملاحظات</label>
+        <textarea id="editOrderNotes" class="form-input" rows="3">${currentNotes}</textarea>
+      </div>
+    </div>
+  `;
 
-  const newPhone = prompt('تعديل رقم الهاتف:', currentPhone);
-  if (newPhone === null) return;
+  document.getElementById('orderDetailsContent').innerHTML = content;
 
-  const newNotes = prompt('تعديل الملاحظات:', currentNotes);
-  if (newNotes === null) return;
+  let actions = `
+    <button class="btn btn-ghost" onclick="viewOrder('${id}')" style="flex:1;">إلغاء التعديل</button>
+    <button class="btn btn-primary" onclick="submitOrderEdit('${id}')" style="flex:1;">
+      <i class="fas fa-save"></i> حفظ التعديلات
+    </button>
+  `;
+  document.getElementById('orderModalActions').innerHTML = actions;
+}
 
-  const newTotalStr = prompt('تعديل المبلغ الكلي (بدون خصم):', currentTotal);
-  if (newTotalStr === null) return;
-  const newTotal = parseFloat(newTotalStr) || currentTotal;
-
-  const newDiscountStr = prompt('الخصم (بالدينار، اتركه 0 إذا لا يوجد):', currentDiscount);
-  if (newDiscountStr === null) return;
-  const newDiscount = parseFloat(newDiscountStr) || 0;
+function submitOrderEdit(id) {
+  const newName = document.getElementById('editOrderName').value;
+  const newPhone = document.getElementById('editOrderPhone').value;
+  const newTotal = parseFloat(document.getElementById('editOrderTotal').value) || 0;
+  const newDiscount = parseFloat(document.getElementById('editOrderDiscount').value) || 0;
+  const newNotes = document.getElementById('editOrderNotes').value;
 
   updateOrderData(id, {
-    customerName:  newName.trim() || currentName,
-    customerPhone: newPhone.trim() || currentPhone,
+    customerName:  newName.trim(),
+    customerPhone: newPhone.trim(),
     notes:         newNotes.trim(),
     totalPrice:    newTotal,
     discount:      newDiscount
