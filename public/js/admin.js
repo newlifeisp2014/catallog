@@ -792,30 +792,102 @@ async function bulkRefreshImages(type) {
   const typeText = type === 'images' ? 'الصور' : 'الفيديوهات (التريلرات)';
   if (!confirm(`هل أنت متأكد من رغبتك في فحص وتحديث ${typeText} الناقصة لجميع الألعاب؟ قد تستغرق هذه العملية عدة دقائق.`)) return;
   
-  showToast(`جاري تحديث ${typeText} بالخلفية... يرجى الانتظار وعدم إغلاق الصفحة.`, 'info');
   const btn = document.querySelector(`button[onclick="bulkRefreshImages('${type}')"]`);
   const originalHtml = btn ? btn.innerHTML : '';
   if (btn) {
     btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري التحديث...';
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري التحضير...';
   }
 
+  // Create Progress UI
+  const progressId = 'bulkProgressContainer';
+  let progressContainer = document.getElementById(progressId);
+  if (!progressContainer) {
+    progressContainer = document.createElement('div');
+    progressContainer.id = progressId;
+    progressContainer.innerHTML = `
+      <div style="position:fixed; bottom:20px; right:20px; background:var(--clr-surface); padding:20px; border-radius:10px; box-shadow:0 10px 25px rgba(0,0,0,0.2); z-index:9999; width: 350px; border:1px solid var(--clr-border-light);">
+          <h4 style="margin-top:0; color:var(--clr-text); font-family: 'Space Grotesk', 'Cairo', sans-serif;">جاري جلب ${typeText}...</h4>
+          <div style="width:100%; background:var(--clr-border-light); height:10px; border-radius:5px; margin-bottom:10px; overflow:hidden;">
+              <div id="bulkProgressBar" style="width:0%; background:var(--clr-primary); height:100%; transition:width 0.3s ease;"></div>
+          </div>
+          <div id="bulkProgressText" style="font-size:0.9rem; color:var(--clr-text-muted);">جاري فحص الألعاب...</div>
+      </div>
+    `;
+    document.body.appendChild(progressContainer);
+  }
+
+  const progressBar = document.getElementById('bulkProgressBar');
+  const progressText = document.getElementById('bulkProgressText');
+
   try {
-    const res = await fetch('/api/games/refresh-all-images', { 
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type })
+    // 1. Fetch games that need updates
+    const res = await fetch(`/api/games/needs-refresh?type=${type}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
     });
-    const data = await res.json();
     
-    if (res.ok && data.success) {
-      showToast(`✅ اكتمل التحديث! تم تحديث ${data.updated} لعبة، وفشل ${data.failed}.`);
-      loadData();
-    } else {
-      showToast(data.error || 'حدث خطأ أثناء التحديث الشامل', 'error');
+    if (!res.ok) throw new Error('فشل جلب قائمة الألعاب');
+    
+    const data = await res.json();
+    const games = data.games || [];
+    
+    if (games.length === 0) {
+      showToast(`لا توجد ألعاب تحتاج إلى تحديث ${typeText}.`, 'info');
+      document.body.removeChild(progressContainer);
+      if (btn) { btn.disabled = false; btn.innerHTML = originalHtml; }
+      return;
     }
+
+    let updated = 0;
+    let failed = 0;
+    const total = games.length;
+
+    // 2. Loop and update one by one
+    for (let i = 0; i < total; i++) {
+      const game = games[i];
+      const percentage = Math.round(((i) / total) * 100);
+      progressBar.style.width = `${percentage}%`;
+      progressText.innerHTML = `جاري جلب: <strong>${game.name}</strong> (${i + 1} من ${total})`;
+
+      try {
+        const updateRes = await fetch(`/api/games/refresh-specific/${game.id}`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ type })
+        });
+        
+        if (updateRes.ok) {
+          updated++;
+        } else {
+          failed++;
+        }
+      } catch (err) {
+        failed++;
+      }
+      
+      // Small delay to prevent rate limiting
+      await new Promise(r => setTimeout(r, 2000));
+    }
+
+    progressBar.style.width = `100%`;
+    progressText.innerHTML = `اكتمل التحديث!`;
+    showToast(`✅ اكتمل التحديث! تم تحديث ${updated}، وفشل ${failed}.`);
+    loadData();
+    
+    setTimeout(() => {
+        if (document.body.contains(progressContainer)) {
+            document.body.removeChild(progressContainer);
+        }
+    }, 3000);
+
   } catch (e) {
     showToast('حدث خطأ في الاتصال بالسيرفر أثناء التحديث', 'error');
+    if (document.body.contains(progressContainer)) {
+        document.body.removeChild(progressContainer);
+    }
   } finally {
     if (btn) {
       btn.disabled = false;

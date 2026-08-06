@@ -709,71 +709,83 @@ router.post('/refresh-image/:id', verifyToken, async (req, res) => {
     }
 });
 
-// Bulk refresh all images/trailers (Protected)
-router.post('/refresh-all-images', verifyToken, async (req, res) => {
+// Get list of games that need refresh
+router.get('/needs-refresh', verifyToken, async (req, res) => {
     try {
-        const { type } = req.body || {}; // 'images', 'trailers', or undefined (from old cached js)
-        const checkAll = !type; // If no type is provided, check both
-
-        const result = await pool.query('SELECT id, name, name_ar, category, image, trailer FROM games');
+        const { type } = req.query; // 'images' or 'trailers'
+        
+        const result = await pool.query('SELECT id, name, name_ar, image, trailer FROM games');
         const games = result.rows;
-
-        let updated = 0;
-        let failed = 0;
-
+        
+        const needsRefresh = [];
+        
         for (const game of games) {
-            try {
-                let isLocalMissing = false;
-                if (game.image && game.image.startsWith('/images/games/')) {
-                    const fullPath = path.join(__dirname, '..', 'public', game.image);
-                    if (!fs.existsSync(fullPath)) {
-                        isLocalMissing = true;
-                    }
+            let isLocalMissing = false;
+            if (game.image && game.image.startsWith('/images/games/')) {
+                const fullPath = path.join(__dirname, '..', 'public', game.image);
+                if (!fs.existsSync(fullPath)) {
+                    isLocalMissing = true;
                 }
-
-                const needsImage = (checkAll || type === 'images') && (!game.image || game.image.includes('placehold.co') || isLocalMissing);
-                const needsTrailer = (checkAll || type === 'trailers') && !game.trailer;
-
-                if (needsImage || needsTrailer) {
-                    // الاعتماد على الاسم الإنجليزي أولاً للبحث لأنه أدق في يوتيوب وستيم
-                    const searchQuery = game.name || game.name_ar;
-                    const searchResult = await searchGameImage(searchQuery, game.category);
-
-                    let finalImage = game.image; // الاحتفاظ بالصورة الحالية كافتراضي
-                    let finalTrailer = game.trailer; // الاحتفاظ بالتريلر الحالي كافتراضي
-
-                    if (type === 'images' && searchResult.image && !searchResult.image.includes('placehold.co')) {
-                        const safeName = game.name.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 50);
-                        const filename = `${safeName}_${game.id}.jpg`;
-                        const localPath = await downloadImage(searchResult.image, filename);
-                        if (localPath) {
-                            finalImage = localPath;
-                        }
-                    }
-
-                    if (type === 'trailers' && searchResult.trailer) {
-                        finalTrailer = searchResult.trailer;
-                    }
-
-                    await pool.query(
-                        'UPDATE games SET image = $1, trailer = $2 WHERE id = $3',
-                        [finalImage, finalTrailer || '', game.id]
-                    );
-                    updated++;
-                    
-                    // تأخير لمدة 2 ثانية لتجنب حظر IP من قبل يوتيوب أو ستيم بسبب كثرة الطلبات (Rate limit)
-                    await new Promise(resolve => setTimeout(resolve, 2000));
-                }
-            } catch (e) {
-                failed++;
-                console.error(`Failed to refresh ${game.name}:`, e.message);
+            }
+            
+            const needsImage = type === 'images' && (!game.image || game.image.includes('placehold.co') || isLocalMissing);
+            const needsTrailer = type === 'trailers' && !game.trailer;
+            
+            if (needsImage || needsTrailer) {
+                needsRefresh.push({
+                    id: game.id,
+                    name: game.name || game.name_ar || 'لعبة مجهولة'
+                });
             }
         }
-
-        res.json({ success: true, updated, failed, total: games.length });
+        
+        res.json({ success: true, games: needsRefresh });
     } catch (error) {
-        console.error('Bulk refresh error:', error);
-        res.status(500).json({ error: 'Failed to refresh images' });
+        console.error('Needs refresh error:', error);
+        res.status(500).json({ error: 'Failed to get games list' });
+    }
+});
+
+// Refresh a specific game for bulk operations
+router.post('/refresh-specific/:id', verifyToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { type } = req.body; // 'images' or 'trailers'
+        
+        const gameResult = await pool.query('SELECT name, name_ar, category, image, trailer FROM games WHERE id = $1', [id]);
+        if (gameResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Game not found' });
+        }
+        
+        const game = gameResult.rows[0];
+        const searchQuery = game.name || game.name_ar;
+        const searchResult = await searchGameImage(searchQuery, game.category);
+        
+        let finalImage = game.image; 
+        let finalTrailer = game.trailer; 
+        
+        if (type === 'images' && searchResult.image && !searchResult.image.includes('placehold.co')) {
+            const safeName = (game.name || 'game').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 50);
+            const filename = `${safeName}_${id}.jpg`;
+            const localPath = await downloadImage(searchResult.image, filename);
+            if (localPath) {
+                finalImage = localPath;
+            }
+        }
+        
+        if (type === 'trailers' && searchResult.trailer) {
+            finalTrailer = searchResult.trailer;
+        }
+        
+        await pool.query(
+            'UPDATE games SET image = $1, trailer = $2 WHERE id = $3',
+            [finalImage, finalTrailer || '', id]
+        );
+        
+        res.json({ success: true });
+    } catch (error) {
+        console.error(`Refresh specific error for ID ${req.params.id}:`, error);
+        res.status(500).json({ error: 'Failed to refresh game' });
     }
 });
 
