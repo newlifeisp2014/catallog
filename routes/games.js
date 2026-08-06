@@ -351,7 +351,12 @@ async function searchYouTube(query) {
 // ==================== 7. SuperPSX Search ====================
 async function searchSuperPSX(query) {
     try {
-        const url = `https://www.superpsx.com/?s=${encodeURIComponent(query)}`;
+        let searchQuery = query;
+        if (!searchQuery.toLowerCase().includes('ps4')) {
+            searchQuery += ' ps4';
+        }
+        
+        const url = `https://www.superpsx.com/?s=${encodeURIComponent(searchQuery)}`;
         const res = await fetch(url, {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
