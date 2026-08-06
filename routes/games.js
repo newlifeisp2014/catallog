@@ -391,6 +391,48 @@ async function searchSuperPSX(query) {
     }
 }
 
+function cleanGameName(name) {
+    if (!name) return '';
+    let cleaned = name.toLowerCase();
+    
+    // Map common abbreviations
+    const abbreviations = {
+        'pes': 'pro evolution soccer',
+        'fifa': 'ea sports fc', // or just keep fifa for older games
+        'gta': 'grand theft auto',
+        'cod': 'call of duty',
+        're': 'resident evil',
+        'nfs': 'need for speed',
+        'ac': 'assassin\'s creed',
+        'ww2': 'world war 2',
+        'mk11': 'mortal kombat 11',
+        'mk': 'mortal kombat'
+    };
+
+    // Replace strict word matches for abbreviations
+    for (const [abbr, full] of Object.entries(abbreviations)) {
+        const regex = new RegExp(`\\b${abbr}\\b`, 'g');
+        cleaned = cleaned.replace(regex, full);
+    }
+
+    // Remove common suffixes that confuse search APIs
+    const wordsToRemove = [
+        'ps4', 'ps5', 'edition', 'definitive', 'ultimate', 'game of the year', 'goty', 
+        'remastered', 'remake', 'collection', 'trilogy', 'directors cut', 'director\'s cut',
+        'deluxe', 'standard', 'premium', 'gold', 'complete'
+    ];
+
+    for (const word of wordsToRemove) {
+        const regex = new RegExp(`\\b${word}\\b`, 'g');
+        cleaned = cleaned.replace(regex, '');
+    }
+
+    // Remove special characters and extra spaces
+    cleaned = cleaned.replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+    
+    return cleaned || name; // fallback to original if cleaned is empty
+}
+
 // ==================== البحث الشامل عن غلاف اللعبة ====================
 
 async function searchGameImage(query, category = 'default') {
@@ -403,25 +445,36 @@ async function searchGameImage(query, category = 'default') {
         source: 'none'
     };
 
-    // 0. جرب SuperPSX أولاً
-    const superpsx = await searchSuperPSX(query);
+    const cleanedQuery = cleanGameName(query);
+    console.log(`🧹 الاسم بعد التنظيف: "${cleanedQuery}"`);
+
+    // 0. جرب SuperPSX أولاً (بالاسم الأصلي والاسم المنظف)
+    let superpsx = await searchSuperPSX(query);
+    if (!superpsx || !superpsx.image) {
+        superpsx = await searchSuperPSX(cleanedQuery);
+    }
+    
     if (superpsx && superpsx.image) {
-        result = { ...result, ...superpsx }; // preserve trailer if any, though it's empty here
+        result = { ...result, ...superpsx };
         console.log(`✅ SuperPSX Cover`);
     }
 
-    // 1. جرب Steam أولاً (لأن لديه أغلفة عمودية دقيقة 600x900_2x)
+    // 1. جرب Steam أولاً
     if (!result.image) {
-        const steam = await searchSteam(query);
+        let steam = await searchSteam(cleanedQuery);
+        if (!steam && cleanedQuery !== query) steam = await searchSteam(query); // fallback to original
+        
         if (steam && steam.image) {
             result = { ...steam };
             console.log(`✅ Steam Cover: ${steam.gameName}`);
         }
     }
 
-    // 2. إذا Steam فشل، جرب RAWG للألعاب الحصرية على PS4 (ملاحظة: قد يفشل بدون API Key)
+    // 2. إذا Steam فشل، جرب RAWG
     if (!result.image) {
-        const rawg = await searchRAWG(query);
+        let rawg = await searchRAWG(cleanedQuery);
+        if (!rawg && cleanedQuery !== query) rawg = await searchRAWG(query);
+        
         if (rawg && rawg.image) {
             result = { ...rawg };
             console.log(`✅ RAWG Cover: ${rawg.gameName}`);
@@ -430,7 +483,9 @@ async function searchGameImage(query, category = 'default') {
 
     // 3. جرب أغلفة Wikipedia الرسمية
     if (!result.image) {
-        const wiki = await searchPS4Cover(query);
+        let wiki = await searchPS4Cover(cleanedQuery);
+        if (!wiki && cleanedQuery !== query) wiki = await searchPS4Cover(query);
+        
         if (wiki && wiki.image) {
             result.image = wiki.image;
             result.source = 'wikipedia';
@@ -440,7 +495,7 @@ async function searchGameImage(query, category = 'default') {
 
     // 4. جرب Unsplash للأغلفة
     if (!result.image) {
-        const unsplash = await searchUnsplash(`${query} PS4 cover boxart`);
+        const unsplash = await searchUnsplash(`${cleanedQuery} PS4 cover boxart`);
         if (unsplash && unsplash.image) {
             result = { ...unsplash };
             console.log(`✅ Unsplash Cover`);
