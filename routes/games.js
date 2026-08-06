@@ -348,6 +348,49 @@ async function searchYouTube(query) {
     }
 }
 
+// ==================== 7. SuperPSX Search ====================
+async function searchSuperPSX(query) {
+    try {
+        const url = `https://www.superpsx.com/?s=${encodeURIComponent(query)}`;
+        const res = await fetch(url, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
+                'Accept-Language': 'en-US,en;q=0.9'
+            }
+        });
+        const html = await res.text();
+        
+        // Find the image from the search results
+        const imgMatch = html.match(/data-bgset="([^"]+)"/);
+        let imageUrl = null;
+        
+        if (imgMatch && imgMatch[1]) {
+            imageUrl = imgMatch[1];
+        } else {
+            // Check for other image tags in case of single result redirect
+            const ogMatch = html.match(/<meta property="og:image"\s+content="([^"]+)"/i);
+            if (ogMatch && ogMatch[1] && !ogMatch[1].includes('SUPERPSX-500-x-100-px-OP.png')) {
+                imageUrl = ogMatch[1];
+            }
+        }
+
+        if (imageUrl) {
+            console.log(`🎮 SuperPSX: "${query}" -> ✅ Image found`);
+            return {
+                image: imageUrl,
+                description: '',
+                source: 'superpsx'
+            };
+        }
+        
+        console.log(`🎮 SuperPSX: "${query}" -> ❌ No image`);
+        return null;
+    } catch (e) {
+        console.error('SuperPSX error:', e.message);
+        return null;
+    }
+}
+
 // ==================== البحث الشامل عن غلاف اللعبة ====================
 
 async function searchGameImage(query, category = 'default') {
@@ -360,11 +403,20 @@ async function searchGameImage(query, category = 'default') {
         source: 'none'
     };
 
+    // 0. جرب SuperPSX أولاً
+    const superpsx = await searchSuperPSX(query);
+    if (superpsx && superpsx.image) {
+        result = { ...result, ...superpsx }; // preserve trailer if any, though it's empty here
+        console.log(`✅ SuperPSX Cover`);
+    }
+
     // 1. جرب Steam أولاً (لأن لديه أغلفة عمودية دقيقة 600x900_2x)
-    const steam = await searchSteam(query);
-    if (steam && steam.image) {
-        result = { ...steam };
-        console.log(`✅ Steam Cover: ${steam.gameName}`);
+    if (!result.image) {
+        const steam = await searchSteam(query);
+        if (steam && steam.image) {
+            result = { ...steam };
+            console.log(`✅ Steam Cover: ${steam.gameName}`);
+        }
     }
 
     // 2. إذا Steam فشل، جرب RAWG للألعاب الحصرية على PS4 (ملاحظة: قد يفشل بدون API Key)
