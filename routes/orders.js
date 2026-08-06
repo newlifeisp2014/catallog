@@ -176,6 +176,10 @@ async function updateOrderLogic(id, updateData, res) {
             fields.push(`total_price = $${paramIndex++}`);
             values.push(updateData.totalPrice);
         }
+        if (updateData.discount !== undefined) {
+            fields.push(`discount = $${paramIndex++}`);
+            values.push(updateData.discount);
+        }
         if (updateData.status !== undefined) {
             fields.push(`status = $${paramIndex++}`);
             values.push(updateData.status);

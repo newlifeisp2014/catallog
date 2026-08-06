@@ -470,8 +470,16 @@ function viewOrder(id) {
 
     <div class="order-detail-section" style="background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.15);">
       <h4>المجموع الكلي</h4>
+      ${o.discount > 0 ? `
+        <div style="font-size:0.9rem;color:var(--clr-text-muted);text-decoration:line-through;">
+          المبلغ الأصلي: ${totalPrice.toLocaleString()} دينار
+        </div>
+        <div style="font-size:0.9rem;color:var(--clr-success);margin-bottom:0.2rem;">
+          الخصم: ${o.discount.toLocaleString()} دينار
+        </div>
+      ` : ''}
       <div style="font-size:1.35rem;font-weight:800;color:var(--clr-gold);">
-        ${totalPrice.toLocaleString()} دينار
+        ${(totalPrice - (o.discount || 0)).toLocaleString()} دينار
       </div>
     </div>
 
@@ -645,6 +653,7 @@ function editOrderModal(id) {
   const currentPhone = o.customerPhone || o.customer_phone || '';
   const currentNotes = o.notes || '';
   const currentTotal = parseFloat(o.totalPrice || o.total_price || o.total || 0);
+  const currentDiscount = parseFloat(o.discount || 0);
 
   const newName = prompt('تعديل اسم الزبون:', currentName);
   if (newName === null) return;
@@ -655,15 +664,20 @@ function editOrderModal(id) {
   const newNotes = prompt('تعديل الملاحظات:', currentNotes);
   if (newNotes === null) return;
 
-  const newTotalStr = prompt('تعديل المبلغ الكلي (دينار):', currentTotal);
+  const newTotalStr = prompt('تعديل المبلغ الكلي (بدون خصم):', currentTotal);
   if (newTotalStr === null) return;
   const newTotal = parseFloat(newTotalStr) || currentTotal;
+
+  const newDiscountStr = prompt('الخصم (بالدينار، اتركه 0 إذا لا يوجد):', currentDiscount);
+  if (newDiscountStr === null) return;
+  const newDiscount = parseFloat(newDiscountStr) || 0;
 
   updateOrderData(id, {
     customerName:  newName.trim() || currentName,
     customerPhone: newPhone.trim() || currentPhone,
     notes:         newNotes.trim(),
-    totalPrice:    newTotal
+    totalPrice:    newTotal,
+    discount:      newDiscount
   });
 }
 
@@ -728,6 +742,8 @@ function sendWhatsAppNotification(orderId) {
   const customerName  = o.customerName || o.customer_name || 'الزبون';
   const customerPhone = o.customerPhone || o.customer_phone || '';
   const totalPrice    = parseFloat(o.totalPrice || o.total_price || o.total || 0);
+  const discount      = parseFloat(o.discount || 0);
+  const finalPrice    = totalPrice - discount;
 
   const phone = formatWhatsAppPhone(customerPhone);
   
@@ -755,7 +771,11 @@ function sendWhatsAppNotification(orderId) {
       text += `📝 *ملاحظة:* ${customerNotesEl.value.trim()}\n\n`;
   }
 
-  text += `💰 المجموع: *${totalPrice.toLocaleString()} دينار*\n\n📌 يمكنك الحضور الآن لاستلام هاردك/جهازك.\nشكراً لتسوقك معنا! ❤️`;
+  if (discount > 0) {
+      text += `🎁 *تم إضافة خصم خاص لك بقيمة ${discount.toLocaleString()} دينار!*\n`;
+  }
+  
+  text += `💰 المبلغ الكلي المطلوب: *${finalPrice.toLocaleString()} دينار*\n\n📌 يمكنك الحضور الآن لاستلام هاردك/جهازك.\nشكراً لتسوقك معنا! ❤️`;
 
   const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
   window.open(url, '_blank');
