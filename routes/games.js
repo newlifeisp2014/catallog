@@ -61,7 +61,7 @@ function downloadImage(url, filename) {
 // جلب JSON من URL
 function fetchJson(url, options = {}) {
     return new Promise((resolve) => {
-        const req = https.get(url, { 
+        const req = https.get(url, {
             timeout: 15000,
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -159,9 +159,9 @@ async function searchRAWG(query) {
         }
 
         console.log(`🌐 RAWG: "${query}" -> "${bestMatch.name}" (${bestScore.toFixed(2)}) -> ${image ? '✅' : '❌'}`);
-        return { 
-            image, 
-            description: bestMatch.description_raw || bestMatch.description || '', 
+        return {
+            image,
+            description: bestMatch.description_raw || bestMatch.description || '',
             trailer: '',
             source: 'rawg',
             gameName: bestMatch.name
@@ -241,10 +241,10 @@ async function searchSteam(query) {
         }
 
         console.log(`🎮 Steam: "${query}" -> "${gameName}" (${bestScore.toFixed(2)}) -> ${finalImage ? '✅' : '❌'}`);
-        return { 
-            image: finalImage, 
-            description, 
-            trailer, 
+        return {
+            image: finalImage,
+            description,
+            trailer,
             source: 'steam',
             gameName
         };
@@ -355,7 +355,7 @@ async function searchSuperPSX(query) {
         if (!searchQuery.toLowerCase().includes('ps4')) {
             searchQuery += ' ps4';
         }
-        
+
         const url = `https://www.superpsx.com/?s=${encodeURIComponent(searchQuery)}`;
         const res = await fetch(url, {
             headers: {
@@ -364,11 +364,11 @@ async function searchSuperPSX(query) {
             }
         });
         const html = await res.text();
-        
+
         // Find the image from the search results
         const imgMatch = html.match(/data-bgset="([^"]+)"/);
         let imageUrl = null;
-        
+
         if (imgMatch && imgMatch[1]) {
             imageUrl = imgMatch[1];
         } else {
@@ -387,7 +387,7 @@ async function searchSuperPSX(query) {
                 source: 'superpsx'
             };
         }
-        
+
         console.log(`🎮 SuperPSX: "${query}" -> ❌ No image`);
         return null;
     } catch (e) {
@@ -399,7 +399,7 @@ async function searchSuperPSX(query) {
 function cleanGameName(name) {
     if (!name) return '';
     let cleaned = name.toLowerCase();
-    
+
     // Map common abbreviations
     const abbreviations = {
         'pes': 'pro evolution soccer',
@@ -422,7 +422,7 @@ function cleanGameName(name) {
 
     // Remove common suffixes that confuse search APIs
     const wordsToRemove = [
-        'ps4', 'ps5', 'edition', 'definitive', 'ultimate', 'game of the year', 'goty', 
+        'ps4', 'ps5', 'edition', 'definitive', 'ultimate', 'game of the year', 'goty',
         'remastered', 'remake', 'collection', 'trilogy', 'directors cut', 'director\'s cut',
         'deluxe', 'standard', 'premium', 'gold', 'complete'
     ];
@@ -434,7 +434,7 @@ function cleanGameName(name) {
 
     // Remove special characters and extra spaces
     cleaned = cleaned.replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
-    
+
     return cleaned || name; // fallback to original if cleaned is empty
 }
 
@@ -443,9 +443,9 @@ function cleanGameName(name) {
 async function searchGameImage(query, category = 'default') {
     console.log(`\n🔍 البحث عن غلاف اللعبة: "${query}"`);
 
-    let result = { 
-        image: null, 
-        description: '', 
+    let result = {
+        image: null,
+        description: '',
         trailer: '',
         source: 'none'
     };
@@ -458,7 +458,7 @@ async function searchGameImage(query, category = 'default') {
     if (!superpsx || !superpsx.image) {
         superpsx = await searchSuperPSX(cleanedQuery);
     }
-    
+
     if (superpsx && superpsx.image) {
         result = { ...result, ...superpsx };
         console.log(`✅ SuperPSX Cover`);
@@ -468,7 +468,7 @@ async function searchGameImage(query, category = 'default') {
     if (!result.image) {
         let steam = await searchSteam(cleanedQuery);
         if (!steam && cleanedQuery !== query) steam = await searchSteam(query); // fallback to original
-        
+
         if (steam && steam.image) {
             result = { ...steam };
             console.log(`✅ Steam Cover: ${steam.gameName}`);
@@ -479,7 +479,7 @@ async function searchGameImage(query, category = 'default') {
     if (!result.image) {
         let rawg = await searchRAWG(cleanedQuery);
         if (!rawg && cleanedQuery !== query) rawg = await searchRAWG(query);
-        
+
         if (rawg && rawg.image) {
             result = { ...rawg };
             console.log(`✅ RAWG Cover: ${rawg.gameName}`);
@@ -490,7 +490,7 @@ async function searchGameImage(query, category = 'default') {
     if (!result.image) {
         let wiki = await searchPS4Cover(cleanedQuery);
         if (!wiki && cleanedQuery !== query) wiki = await searchPS4Cover(query);
-        
+
         if (wiki && wiki.image) {
             result.image = wiki.image;
             result.source = 'wikipedia';
@@ -647,9 +647,9 @@ router.post('/', verifyToken, async (req, res) => {
             [id, name.trim(), finalNameAr, price, size, category, finalImage, finalDescription, finalTrailer, notes || '', hardDrive || '1']
         );
 
-        res.json({ 
-            id, name: name.trim(), nameAr: finalNameAr, price, size, category, 
-            image: finalImage, description: finalDescription, 
+        res.json({
+            id, name: name.trim(), nameAr: finalNameAr, price, size, category,
+            image: finalImage, description: finalDescription,
             trailer: finalTrailer, notes, hardDrive: hardDrive || '1'
         });
     } catch (error) {
@@ -756,10 +756,10 @@ router.post('/refresh-image/:id', verifyToken, async (req, res) => {
             [finalImage, searchResult.description, searchResult.trailer, id]
         );
 
-        res.json({ 
-            success: true, 
-            image: finalImage, 
-            description: searchResult.description, 
+        res.json({
+            success: true,
+            image: finalImage,
+            description: searchResult.description,
             trailer: searchResult.trailer,
             source: searchResult.source
         });
@@ -773,12 +773,12 @@ router.post('/refresh-image/:id', verifyToken, async (req, res) => {
 router.get('/needs-refresh', verifyToken, async (req, res) => {
     try {
         const { type } = req.query; // 'images' or 'trailers'
-        
+
         const result = await pool.query('SELECT id, name, name_ar, image, trailer FROM games');
         const games = result.rows;
-        
+
         const needsRefresh = [];
-        
+
         for (const game of games) {
             let isLocalMissing = false;
             if (game.image && game.image.startsWith('/images/games/')) {
@@ -787,10 +787,10 @@ router.get('/needs-refresh', verifyToken, async (req, res) => {
                     isLocalMissing = true;
                 }
             }
-            
+
             const needsImage = type === 'images' && (!game.image || game.image.includes('placehold.co') || isLocalMissing);
             const needsTrailer = type === 'trailers' && !game.trailer;
-            
+
             if (needsImage || needsTrailer) {
                 needsRefresh.push({
                     id: game.id,
@@ -798,7 +798,7 @@ router.get('/needs-refresh', verifyToken, async (req, res) => {
                 });
             }
         }
-        
+
         res.json({ success: true, games: needsRefresh });
     } catch (error) {
         console.error('Needs refresh error:', error);
@@ -811,19 +811,19 @@ router.post('/refresh-specific/:id', verifyToken, async (req, res) => {
     try {
         const { id } = req.params;
         const { type } = req.body; // 'images' or 'trailers'
-        
+
         const gameResult = await pool.query('SELECT name, name_ar, category, image, trailer FROM games WHERE id = $1', [id]);
         if (gameResult.rows.length === 0) {
             return res.status(404).json({ error: 'Game not found' });
         }
-        
+
         const game = gameResult.rows[0];
         const searchQuery = game.name || game.name_ar;
         const searchResult = await searchGameImage(searchQuery, game.category);
-        
-        let finalImage = game.image; 
-        let finalTrailer = game.trailer; 
-        
+
+        let finalImage = game.image;
+        let finalTrailer = game.trailer;
+
         if (type === 'images' && searchResult.image && !searchResult.image.includes('placehold.co')) {
             const safeName = (game.name || 'game').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 50);
             const filename = `${safeName}_${id}.jpg`;
@@ -832,16 +832,16 @@ router.post('/refresh-specific/:id', verifyToken, async (req, res) => {
                 finalImage = localPath;
             }
         }
-        
+
         if (type === 'trailers' && searchResult.trailer) {
             finalTrailer = searchResult.trailer;
         }
-        
+
         await pool.query(
             'UPDATE games SET image = $1, trailer = $2 WHERE id = $3',
             [finalImage, finalTrailer || '', id]
         );
-        
+
         res.json({ success: true });
     } catch (error) {
         console.error(`Refresh specific error for ID ${req.params.id}:`, error);
