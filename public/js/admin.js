@@ -806,7 +806,7 @@ async function bulkRefreshImages(type) {
     progressContainer = document.createElement('div');
     progressContainer.id = progressId;
     progressContainer.innerHTML = `
-      <div style="position:fixed; bottom:20px; right:20px; background:var(--clr-surface); padding:20px; border-radius:10px; box-shadow:0 10px 25px rgba(0,0,0,0.2); z-index:9999; width: 350px; border:1px solid var(--clr-border-light);">
+      <div style="position:fixed; bottom:20px; left:20px; background:var(--clr-surface); padding:20px; border-radius:10px; box-shadow:0 10px 25px rgba(0,0,0,0.2); z-index:99999; width: 350px; border:1px solid var(--clr-border-light);">
           <h4 style="margin-top:0; color:var(--clr-text); font-family: 'Space Grotesk', 'Cairo', sans-serif;">جاري جلب ${typeText}...</h4>
           <div style="width:100%; background:var(--clr-border-light); height:10px; border-radius:5px; margin-bottom:10px; overflow:hidden;">
               <div id="bulkProgressBar" style="width:0%; background:var(--clr-primary); height:100%; transition:width 0.3s ease;"></div>
