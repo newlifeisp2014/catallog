@@ -355,37 +355,70 @@ async function searchSuperPSX(query) {
         if (!searchQuery.toLowerCase().includes('ps4')) {
             searchQuery += ' ps4';
         }
-
+        
         const url = `https://www.superpsx.com/?s=${encodeURIComponent(searchQuery)}`;
         const res = await fetch(url, {
             headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/114.0.0.0',
                 'Accept-Language': 'en-US,en;q=0.9'
             }
         });
         const html = await res.text();
-
-        // Find the image from the search results
-        const imgMatch = html.match(/data-bgset="([^"]+)"/);
-        let imageUrl = null;
-
-        if (imgMatch && imgMatch[1]) {
-            imageUrl = imgMatch[1];
-        } else {
-            // Check for other image tags in case of single result redirect
-            const ogMatch = html.match(/<meta property="og:image"\s+content="([^"]+)"/i);
-            if (ogMatch && ogMatch[1] && !ogMatch[1].includes('SUPERPSX-500-x-100-px-OP.png')) {
-                imageUrl = ogMatch[1];
+        
+        // Find ALL images from the search results
+        const regex = /<a[^>]*class="[^"]*penci-image-holder[^"]*"[^>]*>/gi;
+        let match;
+        const results = [];
+        
+        while ((match = regex.exec(html)) !== null) {
+            const tag = match[0];
+            const bgMatch = tag.match(/data-bgset="([^"]+)"/);
+            const titleMatch = tag.match(/title="([^"]+)"/);
+            
+            if (bgMatch && titleMatch) {
+                let title = titleMatch[1].replace(/&#[0-9]+;/g, '').replace(/PKG/i, '').replace(/PS4/i, '').trim();
+                results.push({
+                    image: bgMatch[1],
+                    title: title
+                });
             }
         }
 
-        if (imageUrl) {
-            console.log(`🎮 SuperPSX: "${query}" -> ✅ Image found`);
-            return {
-                image: imageUrl,
-                description: '',
-                source: 'superpsx'
-            };
+        if (results.length > 0) {
+            let bestMatch = null;
+            let bestScore = 0;
+            
+            for (const item of results) {
+                const score = nameSimilarity(query, item.title);
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestMatch = item;
+                }
+            }
+
+            // Pick the best match if score is reasonable, else default to the first one if we only have 1
+            if (bestMatch && (bestScore > 0.4 || results.length === 1)) {
+                console.log(`🎮 SuperPSX: "${query}" -> "${bestMatch.title}" (${bestScore.toFixed(2)}) -> ✅`);
+                return {
+                    image: bestMatch.image,
+                    description: '',
+                    source: 'superpsx'
+                };
+            } else if (bestMatch) {
+                console.log(`🎮 SuperPSX: "${query}" -> ❌ تشابه ضعيف (${bestScore.toFixed(2)}) مع "${bestMatch.title}"`);
+                return null;
+            }
+        } else {
+            // Check for single result redirect or meta tag fallback
+            const ogMatch = html.match(/<meta property="og:image"\s+content="([^"]+)"/i);
+            if (ogMatch && ogMatch[1] && !ogMatch[1].includes('SUPERPSX-500-x-100-px-OP.png')) {
+                console.log(`🎮 SuperPSX: "${query}" -> ✅ Image found (OG Meta)`);
+                return {
+                    image: ogMatch[1],
+                    description: '',
+                    source: 'superpsx'
+                };
+            }
         }
 
         console.log(`🎮 SuperPSX: "${query}" -> ❌ No image`);
