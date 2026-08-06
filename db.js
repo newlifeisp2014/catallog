@@ -49,6 +49,7 @@ async function initTables() {
                 discount INTEGER DEFAULT 0,
                 status VARCHAR(20) DEFAULT 'pending',
                 completed_games JSONB DEFAULT '[]',
+                cancelled_games JSONB DEFAULT '[]',
                 admin_notes TEXT DEFAULT '',
                 points_awarded BOOLEAN DEFAULT false,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -61,6 +62,7 @@ async function initTables() {
             ADD COLUMN IF NOT EXISTS customer_address TEXT DEFAULT '',
             ADD COLUMN IF NOT EXISTS discount INTEGER DEFAULT 0,
             ADD COLUMN IF NOT EXISTS completed_games JSONB DEFAULT '[]',
+            ADD COLUMN IF NOT EXISTS cancelled_games JSONB DEFAULT '[]',
             ADD COLUMN IF NOT EXISTS admin_notes TEXT DEFAULT '',
             ADD COLUMN IF NOT EXISTS points_awarded BOOLEAN DEFAULT false,
             ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;

@@ -389,9 +389,14 @@ function viewOrder(id) {
   document.getElementById('orderModalId').textContent = '#' + orderId;
 
   const completedGames = o.completedGames || o.completed_games || [];
+  const cancelledGames = o.cancelledGames || o.cancelled_games || [];
+  
   const totalGames     = (o.games || []).length;
+  const cancelledCount = cancelledGames.length;
+  const validGames     = Math.max(1, totalGames - cancelledCount);
+  
   const completedCount = (o.games || []).filter(g => completedGames.includes(g.id || g.name || g.nameAr)).length;
-  const progressPct    = totalGames > 0 ? Math.round((completedCount / totalGames) * 100) : 0;
+  const progressPct    = totalGames > 0 ? Math.min(100, Math.round((completedCount / validGames) * 100)) : 0;
 
   const content = `
     <div class="order-detail-section">
@@ -423,20 +428,40 @@ function viewOrder(id) {
         ${(o.games || []).map(g => {
           const gId   = g.id || g.name || g.nameAr;
           const isDone = completedGames.includes(gId);
+          
+          // Look for cancellation info
+          const cancelledGames = o.cancelledGames || o.cancelled_games || [];
+          const cancelObj = cancelledGames.find(x => x.id === gId);
+          const isCancelled = !!cancelObj;
+          
+          let borderColor = 'var(--clr-border-light)';
+          if (isDone) borderColor = 'rgba(34,197,94,0.3)';
+          else if (isCancelled) borderColor = 'rgba(239,68,68,0.3)';
+
           return `
-            <div class="order-game-item" style="display:flex;align-items:center;justify-content:space-between;padding:0.65rem 0.8rem;background:var(--clr-surface-2);border-radius:var(--radius-md);border:1px solid ${isDone ? 'rgba(34,197,94,0.3)' : 'var(--clr-border-light)'};">
-              <label style="display:flex;align-items:center;gap:0.6rem;cursor:pointer;flex:1;margin:0;">
-                <input
-                  type="checkbox"
-                  ${isDone ? 'checked' : ''}
-                  onchange="toggleGameCompleted('${orderId}', '${gId.replace(/'/g, "\\'")}', this.checked)"
-                  style="width:18px;height:18px;cursor:pointer;accent-color:var(--clr-gold);"
-                >
-                <span style="font-size:0.92rem;font-weight:${isDone ? '700' : '500'};color:${isDone ? 'var(--clr-success)' : 'var(--clr-text)'};text-decoration:${isDone ? 'line-through' : 'none'};">
-                  ${g.name_ar || g.nameAr || g.name}
-                </span>
-              </label>
-              <span class="order-game-item__hdd" style="font-size:0.75rem;padding:0.2rem 0.5rem;background:rgba(255,255,255,0.05);border-radius:var(--radius-sm);">هارد ${g.hardDrive || '1'}</span>
+            <div class="order-game-item" style="display:flex;flex-direction:column;gap:0.4rem;padding:0.65rem 0.8rem;background:var(--clr-surface-2);border-radius:var(--radius-md);border:1px solid ${borderColor};">
+              <div style="display:flex;align-items:center;justify-content:space-between;">
+                <label style="display:flex;align-items:center;gap:0.6rem;cursor:${isCancelled ? 'not-allowed' : 'pointer'};flex:1;margin:0;opacity:${isCancelled ? '0.6' : '1'}">
+                  <input
+                    type="checkbox"
+                    ${isDone ? 'checked' : ''}
+                    ${isCancelled ? 'disabled' : ''}
+                    onchange="toggleGameCompleted('${orderId}', '${gId.replace(/'/g, "\\'")}', this.checked)"
+                    style="width:18px;height:18px;cursor:pointer;accent-color:var(--clr-gold);"
+                  >
+                  <span style="font-size:0.92rem;font-weight:${isDone ? '700' : '500'};color:${isDone ? 'var(--clr-success)' : isCancelled ? 'var(--clr-danger)' : 'var(--clr-text)'};text-decoration:${isDone || isCancelled ? 'line-through' : 'none'};">
+                    ${g.name_ar || g.nameAr || g.name}
+                  </span>
+                </label>
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                  <span class="order-game-item__hdd" style="font-size:0.75rem;padding:0.2rem 0.5rem;background:rgba(255,255,255,0.05);border-radius:var(--radius-sm);">هارد ${g.hardDrive || '1'}</span>
+                  ${isCancelled ? 
+                    `<button class="btn btn-ghost btn-sm" style="color:var(--clr-text-muted);padding:0.2rem 0.4rem;" onclick="toggleGameCancelled('${orderId}', '${gId.replace(/'/g, "\\'")}', true)" title="تراجع عن الإلغاء"><i class="fas fa-undo"></i></button>` :
+                    `<button class="btn btn-ghost btn-sm" style="color:var(--clr-danger);padding:0.2rem 0.4rem;" onclick="toggleGameCancelled('${orderId}', '${gId.replace(/'/g, "\\'")}')" title="إلغاء اللعبة"><i class="fas fa-times"></i></button>`
+                  }
+                </div>
+              </div>
+              ${isCancelled ? `<div style="font-size:0.8rem;color:var(--clr-danger);background:rgba(239,68,68,0.1);padding:0.3rem 0.5rem;border-radius:4px;"><i class="fas fa-info-circle"></i> تم الإلغاء: ${cancelObj.reason}</div>` : ''}
             </div>
           `;
         }).join('')}
@@ -454,39 +479,49 @@ function viewOrder(id) {
       <h4>الملاحظات</h4>
       <p style="font-size:0.88rem;color:var(--clr-text-muted);">${o.notes}</p>
     </div>` : ''}
+    
+    <div class="order-detail-section">
+      <h4>ملاحظات ترسل للزبون (واتساب)</h4>
+      <textarea id="whatsappCustomerNotes" class="form-input" rows="2" placeholder="اكتب ملاحظات إضافية ترسل للزبون مع رسالة الجاهزية..."></textarea>
+    </div>
   `;
 
   document.getElementById('orderDetailsContent').innerHTML = content;
 
   // Actions
-  let actions = `<button class="btn btn-ghost" onclick="closeOrderModal()">إغلاق</button>`;
+  let actions = `<button class="btn btn-ghost" onclick="closeOrderModal()" style="flex:1;min-width:45%;">إغلاق</button>`;
   actions += `
-    <button class="btn" style="background:#25D366;color:white;font-weight:700;" onclick="sendWhatsAppNotification('${orderId}')">
+    <button class="btn" style="background:#25D366;color:white;font-weight:700;flex:1;min-width:45%;" onclick="sendWhatsAppNotification('${orderId}')">
       <i class="fab fa-whatsapp"></i> إرسال واتساب
     </button>`;
 
   if (status === 'pending') {
     actions += `
-      <button class="btn btn-primary" style="flex:1;" onclick="updateOrderStatus('${orderId}','confirmed')">
+      <button class="btn btn-primary" style="flex:1;min-width:45%;" onclick="updateOrderStatus('${orderId}','confirmed')">
         <i class="fas fa-check"></i> تأكيد الطلب
       </button>
-      <button class="btn btn-danger" onclick="updateOrderStatus('${orderId}','cancelled')">
-        <i class="fas fa-times"></i> إلغاء
+      <button class="btn btn-danger" style="flex:1;min-width:45%;" onclick="updateOrderStatus('${orderId}','cancelled')">
+        <i class="fas fa-times"></i> إلغاء الطلب
       </button>`;
   } else if (status === 'confirmed') {
     actions += `
-      <button class="btn btn-primary" style="flex:1;" onclick="updateOrderStatus('${orderId}','delivered')">
+      <button class="btn btn-primary" style="flex:1;min-width:100%;" onclick="updateOrderStatus('${orderId}','delivered')">
         <i class="fas fa-flag-checkered"></i> تم التثبيت والتسليم
       </button>`;
   }
 
   // Delete button always visible to admin
   actions += `
-    <button class="btn btn-danger" onclick="deleteOrder('${orderId}')" title="حذف الطلب نهائياً" style="margin-top:0.25rem;width:100%;">
+    <button class="btn btn-danger" onclick="deleteOrder('${orderId}')" title="حذف الطلب نهائياً" style="width:100%;background:rgba(239,68,68,0.2);color:var(--clr-danger);border:1px solid rgba(239,68,68,0.3);">
       <i class="fas fa-trash-alt"></i> حذف الطلب نهائياً
     </button>`;
 
-  document.getElementById('orderModalActions').innerHTML = actions;
+  const actionsContainer = document.getElementById('orderModalActions');
+  actionsContainer.style.display = 'flex';
+  actionsContainer.style.flexWrap = 'wrap';
+  actionsContainer.style.gap = '8px';
+  actionsContainer.innerHTML = actions;
+  
   document.getElementById('orderModal').classList.add('active');
 }
 
@@ -533,8 +568,11 @@ async function toggleGameCompleted(orderId, gameId, isChecked) {
     if (!res.ok) throw new Error();
     
     const totalGames = (o.games || []).length;
-    if (completedGames.length === totalGames && totalGames > 0) {
-      showToast('🎉 تم تثبيت وإنجاز جميع ألعاب الطلب!');
+    const cancelledCount = (o.cancelledGames || o.cancelled_games || []).length;
+    const validGames = Math.max(1, totalGames - cancelledCount);
+
+    if (completedGames.length >= validGames && totalGames > 0) {
+      showToast('🎉 تم تثبيت وإنجاز جميع ألعاب الطلب (بما فيها الملغاة)!');
       if (confirm('تهانينا! تم إنجاز جميع الألعاب. هل تريد تحويل حالة الطلب إلى "مكتمل" وإرسال رسالة إشعار للزبون عبر الواتساب؟')) {
         updateOrderStatus(orderId, 'delivered');
       } else {
@@ -546,6 +584,56 @@ async function toggleGameCompleted(orderId, gameId, isChecked) {
     }
   } catch (e) {
     showToast('فشل حفظ حالة الإنجاز', 'error');
+  }
+}
+
+async function toggleGameCancelled(orderId, gameId, undo = false) {
+  const o = allOrders.find(x => (x.orderId || x.order_id || x.id) === orderId);
+  if (!o) return;
+
+  let cancelledGames = [...(o.cancelledGames || o.cancelled_games || [])];
+  
+  if (undo) {
+    cancelledGames = cancelledGames.filter(x => x.id !== gameId);
+  } else {
+    const reason = prompt('يرجى كتابة سبب الإلغاء (مثلاً: غير متوفرة، الهارد ممتلئ):');
+    if (reason === null) return; // User cancelled
+    
+    // Remove from completed if it was completed
+    let completedGames = [...(o.completedGames || o.completed_games || [])];
+    if (completedGames.includes(gameId)) {
+      completedGames = completedGames.filter(id => id !== gameId);
+      o.completedGames = completedGames;
+      o.completed_games = completedGames;
+      
+      // Update completed games first
+      await fetch(`/api/orders/${orderId}`, {
+        method:  'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ completedGames })
+      });
+    }
+
+    if (!cancelledGames.find(x => x.id === gameId)) {
+      cancelledGames.push({ id: gameId, reason: reason || 'بدون سبب' });
+    }
+  }
+
+  o.cancelledGames = cancelledGames;
+  o.cancelled_games = cancelledGames;
+
+  try {
+    const res = await fetch(`/api/orders/${orderId}`, {
+      method:  'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ cancelledGames })
+    });
+    if (!res.ok) throw new Error();
+    
+    showToast(undo ? 'تم التراجع عن إلغاء اللعبة' : 'تم إلغاء اللعبة وحفظ السبب');
+    viewOrder(orderId);
+  } catch (e) {
+    showToast('فشل حفظ حالة الإلغاء', 'error');
   }
 }
 
@@ -642,8 +730,32 @@ function sendWhatsAppNotification(orderId) {
   const totalPrice    = parseFloat(o.totalPrice || o.total_price || o.total || 0);
 
   const phone = formatWhatsAppPhone(customerPhone);
-  const gamesList = (o.games || []).map(g => `• ${g.name_ar || g.nameAr || g.name}`).join('\n');
-  const text = `أهلاً بك *${customerName}* 👋\n\nتم إكمال تجهيز وتثبيت ألعابك بنجاح في *مكتبة NewLife* 🎮:\n\n${gamesList}\n\n💰 المجموع: *${totalPrice.toLocaleString()} دينار*\n\n📌 يمكنك الحضور الآن لاستلام هاردك/جهازك.\nشكراً لتسوقك معنا! ❤️`;
+  
+  const completedGames = o.completedGames || o.completed_games || [];
+  const cancelledGames = o.cancelledGames || o.cancelled_games || [];
+  
+  const installedGames = (o.games || []).filter(g => {
+      const gId = g.id || g.name || g.nameAr;
+      return completedGames.includes(gId);
+  }).map(g => `• ${g.name_ar || g.nameAr || g.name}`).join('\n');
+  
+  let text = `أهلاً بك *${customerName}* 👋\n\nتم إكمال تجهيز وتثبيت ألعابك بنجاح في *مكتبة NewLife* 🎮:\n\n${installedGames || 'لم يتم تثبيت أي لعبة.'}\n\n`;
+  
+  if (cancelledGames.length > 0) {
+      const cancelledText = cancelledGames.map(cg => {
+          const gameInfo = (o.games || []).find(g => (g.id || g.name || g.nameAr) === cg.id);
+          const name = gameInfo ? (gameInfo.name_ar || gameInfo.nameAr || gameInfo.name) : cg.id;
+          return `❌ ${name} (السبب: ${cg.reason})`;
+      }).join('\n');
+      text += `*الألعاب التي تم إلغاؤها:*\n${cancelledText}\n\n`;
+  }
+  
+  const customerNotesEl = document.getElementById('whatsappCustomerNotes');
+  if (customerNotesEl && customerNotesEl.value.trim() !== '') {
+      text += `📝 *ملاحظة:* ${customerNotesEl.value.trim()}\n\n`;
+  }
+
+  text += `💰 المجموع: *${totalPrice.toLocaleString()} دينار*\n\n📌 يمكنك الحضور الآن لاستلام هاردك/جهازك.\nشكراً لتسوقك معنا! ❤️`;
 
   const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
   window.open(url, '_blank');

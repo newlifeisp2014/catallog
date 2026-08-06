@@ -37,6 +37,7 @@ router.get('/', async (req, res) => {
             createdAt: row.created_at,
             updatedAt: row.updated_at,
             completedGames: row.completed_games || [],
+            cancelledGames: row.cancelled_games || [],
             adminNotes: row.admin_notes || '',
             discount: row.discount || 0,
             pointsAwarded: row.points_awarded || false
@@ -71,6 +72,7 @@ router.get('/:id', async (req, res) => {
             createdAt: row.created_at,
             updatedAt: row.updated_at,
             completedGames: row.completed_games || [],
+            cancelledGames: row.cancelled_games || [],
             adminNotes: row.admin_notes || '',
             discount: row.discount || 0,
             pointsAwarded: row.points_awarded || false
@@ -181,6 +183,10 @@ async function updateOrderLogic(id, updateData, res) {
         if (updateData.completedGames !== undefined) {
             fields.push(`completed_games = $${paramIndex++}`);
             values.push(JSON.stringify(updateData.completedGames));
+        }
+        if (updateData.cancelledGames !== undefined) {
+            fields.push(`cancelled_games = $${paramIndex++}`);
+            values.push(JSON.stringify(updateData.cancelledGames));
         }
         if (updateData.adminNotes !== undefined) {
             fields.push(`admin_notes = $${paramIndex++}`);
