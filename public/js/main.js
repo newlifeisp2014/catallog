@@ -136,7 +136,7 @@ function buildGameCard(game, inCart, index) {
   const catLabel = {
     Action: 'أكشن', Adventure: 'مغامرة', Sports: 'رياضة',
     RPG: 'آر بي جي', Fighting: 'قتال', Shooter: 'تصويب',
-    Racing: 'سباق', Horror: 'رعب'
+    Racing: 'سباق', Horror: 'رعب', CoOp: 'ألعاب زوجية'
   };
 
   card.innerHTML = `
@@ -429,7 +429,7 @@ function openGameDetailModal(gameId) {
   const catLabel = {
     Action: 'أكشن', Adventure: 'مغامرة', Sports: 'رياضة',
     RPG: 'آر بي جي', Fighting: 'قتال', Shooter: 'تصويب',
-    Racing: 'سباق', Horror: 'رعب'
+    Racing: 'سباق', Horror: 'رعب', CoOp: 'ألعاب زوجية'
   };
 
   title.innerHTML = `
