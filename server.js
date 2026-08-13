@@ -36,7 +36,9 @@ async function initDB() {
                     { id: "ps4_009", name: "Uncharted 4", nameAr: "انشارتد 4", price: 14000, size: "50 GB", category: "Adventure", image: "https://upload.wikimedia.org/wikipedia/en/1/1a/Uncharted_4_box_artwork.jpg", hardDrive: "5" },
                     { id: "ps4_010", name: "Bloodborne", nameAr: "بلادبورن", price: 15000, size: "30 GB", category: "RPG", image: "https://upload.wikimedia.org/wikipedia/en/6/68/Bloodborne_Cover_Wallpaper.jpg", hardDrive: "5" },
                     { id: "ps4_011", name: "Mortal Kombat 11", nameAr: "مورتال كومبات 11", price: 11000, size: "40 GB", category: "Fighting", image: "https://upload.wikimedia.org/wikipedia/en/2/21/Mortal_Kombat_11_cover_art.png", hardDrive: "6" },
-                    { id: "ps4_012", name: "NBA 2K24", nameAr: "ان بي ايه 2K24", price: 10000, size: "80 GB", category: "Sports", image: "https://upload.wikimedia.org/wikipedia/en/6/6a/NBA_2K24_cover_art.jpg", hardDrive: "6" }
+                    { id: "ps4_012", name: "NBA 2K24", nameAr: "ان بي ايه 2K24", price: 10000, size: "80 GB", category: "Sports", image: "https://upload.wikimedia.org/wikipedia/en/6/6a/NBA_2K24_cover_art.jpg", hardDrive: "6" },
+                    { id: "ps4_013", name: "It Takes Two", nameAr: "ات تيكس تو", price: 16000, size: "45 GB", category: "CoOp", image: "https://upload.wikimedia.org/wikipedia/en/a/aa/It_Takes_Two_cover_art.png", hardDrive: "7" },
+                    { id: "ps4_014", name: "A Way Out", nameAr: "اي واي أوت", price: 14000, size: "25 GB", category: "CoOp", image: "https://upload.wikimedia.org/wikipedia/en/a/a3/A_Way_Out_cover_art.png", hardDrive: "7" }
                 ];
 
                 for (const game of defaultGames) {
