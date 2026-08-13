@@ -814,6 +814,12 @@ function renderGames() {
   const input = document.getElementById('adminSearchInput');
   if (!grid) return;
 
+  const catLabel = {
+    Action: 'أكشن', Adventure: 'مغامرة', Sports: 'رياضة',
+    RPG: 'آر بي جي', Fighting: 'قتال', Shooter: 'تصويب',
+    Racing: 'سباق', Horror: 'رعب', CoOp: 'ألعاب زوجية'
+  };
+
   const q = (input ? input.value : '').toLowerCase();
   const filtered = allGames.filter(g =>
     !q ||
@@ -844,7 +850,7 @@ function renderGames() {
         <div class="admin-game-card__meta">
           <span><i class="fas fa-hdd" style="font-size:0.65rem;margin-left:3px;"></i>هارد ${game.hardDrive || '1'}</span>
           <span>${game.size || ''}</span>
-          <span>${game.category || ''}</span>
+          <span>${catLabel[game.category] || game.category || ''}</span>
         </div>
         <div class="admin-game-card__price">${Number(game.price).toLocaleString()} دينار</div>
       </div>
