@@ -451,7 +451,7 @@ function viewOrder(id) {
         <h4 style="margin:0;">تحديد الألعاب المنجزة (${completedCount} / ${totalGames})</h4>
         <span style="font-size:0.8rem;font-weight:700;color:var(--clr-gold);">${progressPct}% مكتمل</span>
       </div>
-      
+
       <!-- Progress Bar -->
       <div style="width:100%;height:8px;background:var(--clr-surface-2);border-radius:10px;overflow:hidden;margin-bottom:0.8rem;">
         <div style="width:${progressPct}%;height:100%;background:linear-gradient(90deg, #7c3aed, #f59e0b);transition:width 0.3s ease;"></div>
@@ -461,12 +461,15 @@ function viewOrder(id) {
         ${(o.games || []).map(g => {
           const gId   = g.id || g.name || g.nameAr;
           const isDone = completedGames.includes(gId);
-          
-          // Look for cancellation info
-          const cancelledGames = o.cancelledGames || o.cancelled_games || [];
-          const cancelObj = cancelledGames.find(x => x.id === gId);
+
+          const cancelledGamesArr = o.cancelledGames || o.cancelled_games || [];
+          const cancelObj = cancelledGamesArr.find(x => x.id === gId);
           const isCancelled = !!cancelObj;
-          
+
+          // جلب الحجم من الطلب أو من الكتالوك كـ fallback للطلبات القديمة
+          const catalogGame = allGames.find(ag => ag.id === g.id || ag.name === g.name || ag.nameAr === (g.name_ar || g.nameAr));
+          const gameSize = g.size || (catalogGame && catalogGame.size) || '';
+
           let borderColor = 'var(--clr-border-light)';
           if (isDone) borderColor = 'rgba(34,197,94,0.3)';
           else if (isCancelled) borderColor = 'rgba(239,68,68,0.3)';
@@ -475,21 +478,17 @@ function viewOrder(id) {
             <div class="order-game-item" style="display:flex;flex-direction:column;gap:0.4rem;padding:0.65rem 0.8rem;background:var(--clr-surface-2);border-radius:var(--radius-md);border:1px solid ${borderColor};">
               <div style="display:flex;align-items:center;justify-content:space-between;">
                 <label style="display:flex;align-items:center;gap:0.6rem;cursor:${isCancelled ? 'not-allowed' : 'pointer'};flex:1;margin:0;opacity:${isCancelled ? '0.6' : '1'}">
-                  <input
-                    type="checkbox"
-                    ${isDone ? 'checked' : ''}
-                    ${isCancelled ? 'disabled' : ''}
+                  <input type="checkbox" ${isDone ? 'checked' : ''} ${isCancelled ? 'disabled' : ''}
                     onchange="toggleGameCompleted('${orderId}', '${gId.replace(/'/g, "\\'")}', this.checked)"
-                    style="width:18px;height:18px;cursor:pointer;accent-color:var(--clr-gold);"
-                  >
+                    style="width:18px;height:18px;cursor:pointer;accent-color:var(--clr-gold);">
                   <span style="font-size:0.92rem;font-weight:${isDone ? '700' : '500'};color:${isDone ? 'var(--clr-success)' : isCancelled ? 'var(--clr-danger)' : 'var(--clr-text)'};text-decoration:${isDone || isCancelled ? 'line-through' : 'none'};">
                     ${g.name_ar || g.nameAr || g.name}
                   </span>
                 </label>
                 <div style="display:flex;align-items:center;gap:0.5rem;">
-                  ${g.size ? `<span style="font-size:0.72rem;background:rgba(124,58,237,0.15);color:var(--clr-primary-light);border-radius:4px;padding:0.15rem 0.45rem;font-weight:600;"><i class="fas fa-hdd" style="font-size:0.62rem;margin-left:2px;"></i>${g.size}</span>` : ''}
-                  <span class="order-game-item__hdd" style="font-size:0.75rem;padding:0.2rem 0.5rem;background:rgba(255,255,255,0.05);border-radius:var(--radius-sm);">هارد ${g.hardDrive || '1'}</span>
-                  ${isCancelled ? 
+                  ${gameSize ? `<span style="font-size:0.72rem;background:rgba(124,58,237,0.15);color:var(--clr-primary-light);border-radius:4px;padding:0.15rem 0.45rem;font-weight:600;"><i class="fas fa-hdd" style="font-size:0.62rem;margin-left:2px;"></i>${gameSize}</span>` : ''}
+                  <span style="font-size:0.75rem;padding:0.2rem 0.5rem;background:rgba(255,255,255,0.05);border-radius:var(--radius-sm);">هارد ${g.hardDrive || '1'}</span>
+                  ${isCancelled ?
                     `<button class="btn btn-ghost btn-sm" style="color:var(--clr-text-muted);padding:0.2rem 0.4rem;" onclick="toggleGameCancelled('${orderId}', '${gId.replace(/'/g, "\\'")}', true)" title="تراجع عن الإلغاء"><i class="fas fa-undo"></i></button>` :
                     `<button class="btn btn-ghost btn-sm" style="color:var(--clr-danger);padding:0.2rem 0.4rem;" onclick="toggleGameCancelled('${orderId}', '${gId.replace(/'/g, "\\'")}')" title="إلغاء اللعبة"><i class="fas fa-times"></i></button>`
                   }
@@ -502,7 +501,11 @@ function viewOrder(id) {
       </div>
 
       ${(() => {
-        const totalSize = formatTotalSize(o.games || []);
+        const gamesWithSize = (o.games || []).map(g => {
+          const cg = allGames.find(ag => ag.id === g.id || ag.name === g.name);
+          return { ...g, size: g.size || (cg && cg.size) || '' };
+        });
+        const totalSize = formatTotalSize(gamesWithSize);
         return totalSize ? `
           <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.2);border-radius:var(--radius-md);padding:0.55rem 0.85rem;margin-top:0.6rem;">
             <span style="font-size:0.88rem;color:var(--clr-text-muted);"><i class="fas fa-hdd" style="margin-left:6px;color:var(--clr-primary-light);"></i>إجمالي حجم الألعاب</span>
