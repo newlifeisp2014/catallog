@@ -13,6 +13,30 @@ let allCustomers = [];
 let currentTab   = 'dashboard';
 let orderFilter  = 'all';
 
+// ── حساب مجموع الأحجام ───────────────────────────────────
+function parseSizeToGB(sizeStr) {
+  if (!sizeStr) return 0;
+  const s = sizeStr.toString().trim();
+  const numMatch = s.match(/([\d.]+)/);
+  if (!numMatch) return 0;
+  const num = parseFloat(numMatch[1]);
+  const lower = s.toLowerCase();
+  if (lower.includes('tb') || lower.includes('ت')) return num * 1024;
+  if (lower.includes('mb') || lower.includes('م')) return num / 1024;
+  return num;
+}
+
+function formatTotalSize(games) {
+  if (!games || games.length === 0) return null;
+  const hasSizes = games.some(g => (g.size || g.gameSize || '') && parseSizeToGB(g.size || g.gameSize || '') > 0);
+  if (!hasSizes) return null;
+  const total = games.reduce((s, g) => s + parseSizeToGB(g.size || g.gameSize || ''), 0);
+  if (total === 0) return null;
+  if (total >= 1024) return `${(total / 1024).toFixed(1)} TB`;
+  if (total < 1) return `${Math.round(total * 1024)} MB`;
+  return `${Number.isInteger(total) ? total : total.toFixed(1)} GB`;
+}
+
 // ── Fetch Interceptor (JWT) ───────────────────────────────────
 const _fetch = window.fetch;
 window.fetch = async function(...args) {
@@ -454,6 +478,7 @@ function viewOrder(id) {
                   </span>
                 </label>
                 <div style="display:flex;align-items:center;gap:0.5rem;">
+                  ${g.size ? `<span style="font-size:0.72rem;background:rgba(124,58,237,0.15);color:var(--clr-primary-light);border-radius:4px;padding:0.15rem 0.45rem;font-weight:600;"><i class="fas fa-hdd" style="font-size:0.62rem;margin-left:2px;"></i>${g.size}</span>` : ''}
                   <span class="order-game-item__hdd" style="font-size:0.75rem;padding:0.2rem 0.5rem;background:rgba(255,255,255,0.05);border-radius:var(--radius-sm);">هارد ${g.hardDrive || '1'}</span>
                   ${isCancelled ? 
                     `<button class="btn btn-ghost btn-sm" style="color:var(--clr-text-muted);padding:0.2rem 0.4rem;" onclick="toggleGameCancelled('${orderId}', '${gId.replace(/'/g, "\\'")}', true)" title="تراجع عن الإلغاء"><i class="fas fa-undo"></i></button>` :
@@ -466,6 +491,15 @@ function viewOrder(id) {
           `;
         }).join('')}
       </div>
+
+      ${(() => {
+        const totalSize = formatTotalSize(o.games || []);
+        return totalSize ? `
+          <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.2);border-radius:var(--radius-md);padding:0.55rem 0.85rem;margin-top:0.6rem;">
+            <span style="font-size:0.88rem;color:var(--clr-text-muted);"><i class="fas fa-hdd" style="margin-left:6px;color:var(--clr-primary-light);"></i>إجمالي حجم الألعاب</span>
+            <strong style="font-size:1rem;color:var(--clr-primary-light);">${totalSize}</strong>
+          </div>` : '';
+      })()}
     </div>
 
     <div class="order-detail-section" style="background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.15);">
