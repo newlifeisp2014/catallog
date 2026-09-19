@@ -280,6 +280,31 @@ function handleOverlayClick(e) {
   if (e.target === cartOverlay) closeCart();
 }
 
+// ── حساب مجموع الأحجام ────────────────────────────────────────
+function parseSizeToGB(sizeStr) {
+  if (!sizeStr) return 0;
+  const s = sizeStr.toString().trim();
+  // يدعم: "50 GB", "1.5TB", "500MB", "3 كيكا", "10"
+  const numMatch = s.match(/([\d.]+)/);
+  if (!numMatch) return 0;
+  const num = parseFloat(numMatch[1]);
+  const lower = s.toLowerCase();
+  if (lower.includes('tb') || lower.includes('ت')) return num * 1024;
+  if (lower.includes('mb') || lower.includes('م')) return num / 1024;
+  return num; // GB or كيكا أو أي وحدة أخرى
+}
+
+function formatTotalSize(games) {
+  if (!games || games.length === 0) return null;
+  const hasSizes = games.some(g => (g.size || g.gameSize) && parseSizeToGB(g.size || g.gameSize) > 0);
+  if (!hasSizes) return null;
+  const total = games.reduce((s, g) => s + parseSizeToGB(g.size || g.gameSize || ''), 0);
+  if (total === 0) return null;
+  if (total >= 1024) return `${(total / 1024).toFixed(1)} TB`;
+  if (total < 1) return `${Math.round(total * 1024)} MB`;
+  return `${Number.isInteger(total) ? total : total.toFixed(1)} GB`;
+}
+
 function renderCartItems() {
   if (!cartItems) return;
 
@@ -291,6 +316,9 @@ function renderCartItems() {
         <p style="font-size:0.82rem;color:var(--clr-text-faint);">أضف ألعاباً من الكتالوك</p>
       </div>`;
     if (cartTotal) cartTotal.textContent = '0 دينار';
+    // إخفاء مجموع الحجم
+    const sizeEl = document.getElementById('cartSizeTotal');
+    if (sizeEl) sizeEl.style.display = 'none';
     return;
   }
 
@@ -304,7 +332,10 @@ function renderCartItems() {
       >
       <div class="cart-item__info">
         <div class="cart-item__name">${item.nameAr || item.name}</div>
-        <div class="cart-item__price">${Number(item.price).toLocaleString()} دينار</div>
+        <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
+          <div class="cart-item__price">${Number(item.price).toLocaleString()} دينار</div>
+          ${item.size ? `<span style="font-size:0.73rem;background:rgba(124,58,237,0.15);color:var(--clr-primary-light);border-radius:4px;padding:0.1rem 0.4rem;font-weight:600;"><i class="fas fa-hdd" style="font-size:0.65rem;margin-left:2px;"></i>${item.size}</span>` : ''}
+        </div>
       </div>
       <button class="cart-item__remove" onclick="removeFromCart('${item.id}')" aria-label="حذف ${item.nameAr || item.name}">
         <i class="fas fa-trash-alt"></i>
@@ -314,6 +345,29 @@ function renderCartItems() {
 
   const total = cart.reduce((s, g) => s + Number(g.price), 0);
   if (cartTotal) cartTotal.textContent = `${total.toLocaleString()} دينار`;
+
+  // عرض مجموع الحجم
+  const totalSize = formatTotalSize(cart);
+  let sizeEl = document.getElementById('cartSizeTotal');
+  if (!sizeEl) {
+    // إنشاء عنصر مجموع الحجم تلقائياً تحت المجموع الكلي
+    sizeEl = document.createElement('div');
+    sizeEl.id = 'cartSizeTotal';
+    sizeEl.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-top:0.4rem;padding-top:0.4rem;border-top:1px dashed rgba(124,58,237,0.2);';
+    const totalEl = cartTotal ? cartTotal.closest('.cart-total') : null;
+    if (totalEl && totalEl.parentNode) {
+      totalEl.parentNode.insertBefore(sizeEl, totalEl.nextSibling);
+    }
+  }
+  if (totalSize) {
+    sizeEl.style.display = 'flex';
+    sizeEl.innerHTML = `
+      <span style="font-size:0.82rem;color:var(--clr-text-muted);"><i class="fas fa-hdd" style="margin-left:4px;color:var(--clr-primary-light);"></i>إجمالي الحجم</span>
+      <span style="font-size:0.88rem;font-weight:700;color:var(--clr-primary-light);">${totalSize}</span>
+    `;
+  } else {
+    sizeEl.style.display = 'none';
+  }
 }
 
 // ── Submit Order ──────────────────────────────────────────────
