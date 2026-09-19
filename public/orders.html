@@ -346,6 +346,32 @@
     let eomGames        = []; // الألعاب الحالية في الطلب
 
     /* ══════════════════════════════════════════
+       حساب مجموع الأحجام
+    ══════════════════════════════════════════ */
+    function parseSizeToGB(sizeStr) {
+      if (!sizeStr) return 0;
+      const s = sizeStr.toString().trim();
+      const numMatch = s.match(/([\d.]+)/);
+      if (!numMatch) return 0;
+      const num = parseFloat(numMatch[1]);
+      const lower = s.toLowerCase();
+      if (lower.includes('tb') || lower.includes('ت')) return num * 1024;
+      if (lower.includes('mb') || lower.includes('م')) return num / 1024;
+      return num;
+    }
+
+    function formatTotalSize(games) {
+      if (!games || games.length === 0) return null;
+      const hasSizes = games.some(g => (g.size || '') && parseSizeToGB(g.size || '') > 0);
+      if (!hasSizes) return null;
+      const total = games.reduce((s, g) => s + parseSizeToGB(g.size || ''), 0);
+      if (total === 0) return null;
+      if (total >= 1024) return `${(total / 1024).toFixed(1)} TB`;
+      if (total < 1) return `${Math.round(total * 1024)} MB`;
+      return `${Number.isInteger(total) ? total : total.toFixed(1)} GB`;
+    }
+
+    /* ══════════════════════════════════════════
        Timeline
     ══════════════════════════════════════════ */
     function buildTimeline(status) {
@@ -416,9 +442,16 @@
               ${buildTimeline(status)}
               <ul class="order-games-list">
                 ${(order.games||[]).map(g =>
-                  `<li><strong>${g.name_ar||g.nameAr||g.name}</strong> — هارد ${g.hardDrive||'1'}</li>`
+                  `<li><strong>${g.name_ar||g.nameAr||g.name}</strong> — هارد ${g.hardDrive||'1'}${g.size ? ` <span style="font-size:0.78rem;background:rgba(124,58,237,0.15);color:var(--clr-primary-light);border-radius:3px;padding:0.05rem 0.35rem;font-weight:600;margin-right:4px;"><i class="fas fa-hdd" style="font-size:0.6rem;margin-left:2px;"></i>${g.size}</span>` : ''}</li>`
                 ).join('')}
               </ul>
+              ${(() => {
+                const totalSize = formatTotalSize(order.games||[]);
+                return totalSize ? `<div style="display:flex;align-items:center;justify-content:space-between;background:rgba(124,58,237,0.07);border:1px solid rgba(124,58,237,0.18);border-radius:var(--radius-sm);padding:0.35rem 0.65rem;margin-top:0.4rem;font-size:0.82rem;">
+                  <span style="color:var(--clr-text-muted);"><i class="fas fa-hdd" style="margin-left:4px;color:var(--clr-primary-light);"></i>إجمالي الحجم</span>
+                  <strong style="color:var(--clr-primary-light);">${totalSize}</strong>
+                </div>` : '';
+              })()}
               ${order.notes ? `<div style="font-size:0.82rem;color:var(--clr-text-muted);margin-top:0.5rem;background:var(--clr-surface-2);padding:0.5rem;border-radius:var(--radius-sm);"><i class="fas fa-sticky-note" style="margin-left:4px;"></i>ملاحظات: ${order.notes}</div>` : ''}
             </div>
 
@@ -566,6 +599,8 @@
 
       if (eomGames.length === 0) {
         list.innerHTML = `<div class="eom-empty"><i class="fas fa-shopping-basket"></i>لا توجد ألعاب في الطلب<br><small>أضف من الكتالوك على اليسار</small></div>`;
+        const sizeEl = document.getElementById('eomSizeDisplay');
+        if (sizeEl) sizeEl.style.display = 'none';
         return;
       }
 
@@ -583,6 +618,23 @@
           </button>
         </div>
       `).join('');
+
+      // مجموع الحجم في المودال
+      const totalSize = formatTotalSize(eomGames);
+      let sizeEl = document.getElementById('eomSizeDisplay');
+      if (!sizeEl) {
+        sizeEl = document.createElement('div');
+        sizeEl.id = 'eomSizeDisplay';
+        sizeEl.style.cssText = 'font-size:0.78rem;color:var(--clr-primary-light);margin-top:0.25rem;display:flex;align-items:center;gap:0.3rem;';
+        const totalContainer = document.querySelector('.eom-total');
+        if (totalContainer) totalContainer.appendChild(sizeEl);
+      }
+      if (totalSize) {
+        sizeEl.style.display = 'flex';
+        sizeEl.innerHTML = `<i class="fas fa-hdd" style="font-size:0.7rem;"></i> إجمالي الحجم: <strong>${totalSize}</strong>`;
+      } else {
+        sizeEl.style.display = 'none';
+      }
     }
 
     /* ══════════════════════════════════════════
