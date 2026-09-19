@@ -192,6 +192,17 @@ input, select, textarea {
 
 .btn-danger:hover { background: rgba(239,68,68,0.2); }
 
+.btn-outline {
+  background: transparent;
+  border: 1px solid var(--clr-border);
+  color: var(--clr-text-muted);
+}
+.btn-outline:hover {
+  background: var(--clr-surface-2);
+  border-color: var(--clr-primary-light);
+  color: var(--clr-primary-light);
+}
+
 .btn-sm { padding: 0.4rem 0.9rem; font-size: 0.82rem; border-radius: var(--radius-sm); }
 .btn-lg { padding: 0.85rem 1.75rem; font-size: 1rem; border-radius: var(--radius-lg); }
 .btn-full { width: 100%; }
