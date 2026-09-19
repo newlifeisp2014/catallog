@@ -355,6 +355,8 @@ function orderRow(o, showActions) {
   const customerName  = o.customerName || o.customer_name || 'زبون';
   const customerPhone = o.customerPhone || o.customer_phone || '';
   const totalPrice    = parseFloat(o.totalPrice || o.total_price || o.total || 0);
+  const discount      = parseFloat(o.discount || 0);
+  const finalPrice    = totalPrice - discount;
   const status        = o.status || 'pending';
   const s             = STATUS_MAP[status] || STATUS_MAP.pending;
   const dateObj       = new Date(o.createdAt || o.created_at || o.date);
@@ -364,7 +366,14 @@ function orderRow(o, showActions) {
     <td class="td-id">#${id}</td>
     <td class="td-customer"><strong>${customerName}</strong><small>${customerPhone}</small></td>
     <td style="color:var(--clr-text-muted);font-size:0.82rem;">${date}</td>
-    <td class="td-amount">${totalPrice.toLocaleString()} <span style="font-size:0.72rem;font-weight:500;">دينار</span></td>
+    <td class="td-amount">
+      ${discount > 0 ? `
+        <span style="font-size:0.72rem;color:var(--clr-text-muted);text-decoration:line-through;display:block;">${totalPrice.toLocaleString()}</span>
+        <span style="color:var(--clr-gold);font-weight:800;">${finalPrice.toLocaleString()}</span>
+        <span style="font-size:0.65rem;color:var(--clr-success);display:block;">خصم ${discount.toLocaleString()} د</span>
+      ` : `${finalPrice.toLocaleString()}`}
+      <span style="font-size:0.72rem;font-weight:500;">دينار</span>
+    </td>
     <td><span class="badge ${s.cls}">${s.label}</span></td>
     ${showActions ? `<td class="td-actions">
       <div style="display:flex;gap:0.35rem;align-items:center;">
