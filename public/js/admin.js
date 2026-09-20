@@ -919,6 +919,11 @@ function openGameModal() {
   document.getElementById('gameForm').reset();
   document.getElementById('gameEditId').value = '';
   document.getElementById('gameModalTitle').textContent = 'إضافة لعبة جديدة';
+  // إخفاء المعاينة عند فتح نموذج جديد
+  const preview = document.getElementById('gameImagePreview');
+  if (preview) preview.style.display = 'none';
+  const fileInput = document.getElementById('customImageUpload');
+  if (fileInput) fileInput.value = '';
   document.getElementById('gameModal').classList.add('active');
 }
 
@@ -942,6 +947,10 @@ function openEditGameModal(id) {
       document.getElementById('gameTrailer').value = game.trailer || '';
   }
   document.getElementById('gameDescription').value = game.description || '';
+
+  // معاينة الصورة الحالية
+  const isCustom = game.image && game.image.startsWith('/images/games/custom_');
+  updateImagePreview(game.image || '', isCustom ? '📸 صورة مخصصة' : '');
 
   document.getElementById('gameModalTitle').textContent = 'تعديل اللعبة';
   document.getElementById('gameModal').classList.add('active');
@@ -967,6 +976,8 @@ async function fetchGameDetailsOnline() {
       if (data.description && !document.getElementById('gameDescription').value) {
         document.getElementById('gameDescription').value = data.description;
       }
+      // معاينة الصورة المجلوبة تلقائياً
+      updateImagePreview(data.image, 'تلقائي');
       showToast('تم جلب صورة وشرح اللعبة بنجاح! ✨');
     } else {
       showToast('لم يتم العثور على صورة تلقائية للعبة', 'info');
@@ -974,6 +985,108 @@ async function fetchGameDetailsOnline() {
   } catch (e) {
     console.error('fetchGameDetailsOnline error:', e);
     showToast('تعذر جلب تفاصيل اللعبة', 'error');
+  }
+}
+
+// معاينة الصورة عند كتابة رابط يدوياً
+function updateImagePreview(url, sourceBadge = '') {
+  const preview    = document.getElementById('gameImagePreview');
+  const previewImg = document.getElementById('gameImagePreviewImg');
+  const badge      = document.getElementById('imageSourceBadge');
+
+  if (!url || url.trim() === '') {
+    preview.style.display = 'none';
+    return;
+  }
+
+  previewImg.src = url;
+  previewImg.onerror = () => { preview.style.display = 'none'; };
+  previewImg.onload  = () => { preview.style.display = 'block'; };
+  if (badge) badge.textContent = sourceBadge;
+}
+
+// حذف الصورة ومسح المعاينة
+function clearGameImage() {
+  document.getElementById('gameImage').value = '';
+  document.getElementById('gameImagePreview').style.display = 'none';
+  document.getElementById('gameImagePreviewImg').src = '';
+  const badge = document.getElementById('imageSourceBadge');
+  if (badge) badge.textContent = '';
+  // إعادة تعيين input file حتى يمكن رفع نفس الصورة مرة ثانية
+  const fileInput = document.getElementById('customImageUpload');
+  if (fileInput) fileInput.value = '';
+}
+
+// رفع صورة مخصصة من الجهاز
+async function handleCustomImageUpload(input) {
+  if (!input.files || !input.files[0]) return;
+  const file = input.files[0];
+
+  // التحقق من الحجم (أقصى 5MB)
+  if (file.size > 5 * 1024 * 1024) {
+    showToast('حجم الصورة كبير جداً! الحد الأقصى 5MB', 'error');
+    return;
+  }
+
+  const progressContainer = document.getElementById('uploadProgressBar');
+  const progressFill      = document.getElementById('uploadProgressFill');
+  const progressText      = document.getElementById('uploadProgressText');
+
+  // إظهار شريط التقدم
+  progressContainer.style.display = 'block';
+  progressFill.style.width = '20%';
+  progressText.textContent = 'جاري قراءة الصورة...';
+
+  try {
+    // تحويل الصورة إلى base64
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload  = e => resolve(e.target.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    progressFill.style.width = '55%';
+    progressText.textContent = 'جاري رفع الصورة للخادم...';
+
+    // إظهار معاينة محلية فورية
+    const previewImg = document.getElementById('gameImagePreviewImg');
+    const preview    = document.getElementById('gameImagePreview');
+    const badge      = document.getElementById('imageSourceBadge');
+    previewImg.src           = base64;
+    preview.style.display    = 'block';
+    if (badge) badge.textContent = '📸 مخصصة (جاري الرفع)';
+
+    // رفع base64 للخادم
+    const safeName = document.getElementById('gameName').value.trim().replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30) || 'game';
+    const res = await fetch('/api/games/upload-custom-image', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ imageData: base64, fileName: safeName })
+    });
+
+    const data = await res.json();
+
+    progressFill.style.width = '100%';
+
+    if (res.ok && data.path) {
+      // تحديث حقل الصورة بالمسار الدائم
+      document.getElementById('gameImage').value = data.path;
+      previewImg.src = data.path;
+      if (badge) badge.textContent = '📸 صورة مخصصة';
+      progressText.textContent = '✅ تم رفع الصورة بنجاح!';
+      showToast('تم رفع صورتك المخصصة بنجاح! 🌟', 'success');
+    } else {
+      throw new Error(data.error || 'فشل رفع الصورة');
+    }
+  } catch (err) {
+    progressText.textContent = '❌ حدث خطأ!';
+    showToast(err.message || 'تعذر رفع الصورة', 'error');
+  } finally {
+    setTimeout(() => {
+      progressContainer.style.display = 'none';
+      progressFill.style.width = '0%';
+    }, 2500);
   }
 }
 
