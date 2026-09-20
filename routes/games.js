@@ -882,4 +882,51 @@ router.post('/refresh-specific/:id', verifyToken, async (req, res) => {
     }
 });
 
+// ==================== رفع صورة مخصصة (base64) ====================
+router.post('/upload-custom-image', verifyToken, async (req, res) => {
+    try {
+        const { imageData, fileName } = req.body;
+
+        if (!imageData || !imageData.startsWith('data:image/')) {
+            return res.status(400).json({ error: 'بيانات الصورة غير صالحة' });
+        }
+
+        // استخراج نوع الصورة والبيانات
+        const matches = imageData.match(/^data:image\/(\w+);base64,(.+)$/);
+        if (!matches) {
+            return res.status(400).json({ error: 'تنسيق الصورة غير مدعوم' });
+        }
+
+        const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
+        const base64Data = matches[2];
+        const buffer = Buffer.from(base64Data, 'base64');
+
+        // التحقق من حجم الملف (أقصى 5MB)
+        if (buffer.length > 5 * 1024 * 1024) {
+            return res.status(400).json({ error: 'حجم الصورة كبير جداً! الحد الأقصى 5MB' });
+        }
+
+        // إنشاء اسم ملف فريد
+        const safeName = (fileName || 'custom').replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 40);
+        const uniqueId = Date.now().toString().slice(-8);
+        const filename = `custom_${safeName}_${uniqueId}.${ext}`;
+        const filePath = path.join(IMAGES_DIR, filename);
+
+        // حفظ الملف
+        fs.writeFileSync(filePath, buffer);
+
+        const imagePath = `/images/games/${filename}`;
+        console.log(`📸 تم رفع صورة مخصصة: ${filename}`);
+
+        res.json({
+            success: true,
+            path: imagePath,
+            filename
+        });
+    } catch (error) {
+        console.error('Upload custom image error:', error);
+        res.status(500).json({ error: 'حدث خطأ أثناء رفع الصورة' });
+    }
+});
+
 module.exports = router;
