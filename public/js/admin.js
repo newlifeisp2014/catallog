@@ -1064,7 +1064,8 @@ function openEditGameModal(id) {
   // معاينة الصورة الحالية
   const isCustom = game.image && game.image.startsWith('/images/games/custom_');
   const isDb = game.image && game.image.includes('/api/games/image/');
-  updateImagePreview(game.image || '', isDb ? '💾 قاعدة البيانات' : (isCustom ? '📸 صورة مخصصة' : ''));
+  const isPspkg = game.image && game.image.includes('pspkg.com');
+  updateImagePreview(game.image || '', isDb ? '💾 قاعدة البيانات' : (isPspkg ? '🎮 غلاف PSPKG' : (isCustom ? '📸 صورة مخصصة' : '')));
 
   document.getElementById('gameModalTitle').textContent = 'تعديل اللعبة';
   document.getElementById('gameModal').classList.add('active');
@@ -1079,7 +1080,7 @@ async function fetchGameDetailsOnline() {
     return;
   }
 
-  showToast('جاري البحث عن تفاصيل وصورة وتصنيف اللعبة...', 'info');
+  showToast('جاري البحث عن تفاصيل وصورة وتصنيف اللعبة (PSPKG / RAWG)...', 'info');
 
   try {
     const res  = await fetch(`/api/games/search-image?q=${encodeURIComponent(query)}&category=${encodeURIComponent(catInput.value)}`);
@@ -1103,9 +1104,10 @@ async function fetchGameDetailsOnline() {
           badge.innerHTML = `<i class="fas fa-magic" style="margin-left:4px;"></i> تم التحديد تلقائياً: ${catLabel[data.category] || data.category}`;
         }
       }
-      // معاينة الصورة المجلوبة تلقائياً (من الداتابيز مباشرة)
+      // معاينة الصورة المجلوبة تلقائياً (من الداتابيز أو PSPKG مباشرة)
       const isDbImage = data.image.includes('/api/games/image/');
-      updateImagePreview(data.image, isDbImage ? '💾 قاعدة البيانات' : 'تلقائي');
+      const isPspkg = data.source === 'pspkg' || data.image.includes('pspkg.com');
+      updateImagePreview(data.image, isDbImage ? '💾 قاعدة البيانات' : (isPspkg ? '🎮 غلاف PSPKG رسمي' : 'تلقائي'));
       showToast('تم جلب صورة وتفاصيل وتصنيف اللعبة بنجاح! ✨');
     } else {
       showToast('لم يتم العثور على صورة تلقائية للعبة', 'info');
@@ -1116,7 +1118,7 @@ async function fetchGameDetailsOnline() {
   }
 }
 
-// معاينة الصورة عند كتابة رابط يدوياً
+// معاينة الصورة عند كتابة أو لصق رابط يدوياً
 function updateImagePreview(url, sourceBadge = '') {
   const preview    = document.getElementById('gameImagePreview');
   const previewImg = document.getElementById('gameImagePreviewImg');
@@ -1127,10 +1129,34 @@ function updateImagePreview(url, sourceBadge = '') {
     return;
   }
 
-  previewImg.src = url;
+  const cleanUrl = url.trim();
+
+  // إذا تم لصق رابط صفحة لعبة من pspkg.com (مثل https://pspkg.com/ps4/...)
+  if (cleanUrl.includes('pspkg.com/') && !cleanUrl.includes('img.pspkg.com')) {
+    if (badge) badge.textContent = '⏳ جاري استخراج الغلاف من PSPKG...';
+    preview.style.display = 'block';
+    fetch(`/api/games/search-image?q=${encodeURIComponent(cleanUrl)}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d && d.image) {
+          document.getElementById('gameImage').value = d.image;
+          updateImagePreview(d.image, '🎮 غلاف PSPKG رسمي');
+          showToast('تم استخراج غلاف اللعبة من PSPKG بنجاح! 🌟');
+        }
+      }).catch(() => {});
+    return;
+  }
+
+  previewImg.src = cleanUrl;
   previewImg.onerror = () => { preview.style.display = 'none'; };
   previewImg.onload  = () => { preview.style.display = 'block'; };
-  if (badge) badge.textContent = sourceBadge;
+
+  if (badge) {
+    if (!sourceBadge && cleanUrl.includes('img.pspkg.com')) {
+      sourceBadge = '🎮 غلاف PSPKG رسمي';
+    }
+    badge.textContent = sourceBadge;
+  }
 }
 
 // حذف الصورة ومسح المعاينة

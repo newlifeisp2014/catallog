@@ -21,33 +21,41 @@ if (!fs.existsSync(IMAGES_DIR)) {
 // تحميل الصورة كـ Buffer ثنائي
 function downloadImageBuffer(url) {
     return new Promise((resolve) => {
-        if (!url || url.includes('placehold.co')) return resolve(null);
+        if (!url || typeof url !== 'string' || url.includes('placehold.co')) return resolve(null);
 
-        const options = {
-            timeout: 15000,
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
-            }
-        };
+        try {
+            const safeUrl = url.includes('%') ? url : encodeURI(url);
+            const parsedUrl = new URL(safeUrl);
+            const options = {
+                timeout: 15000,
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36',
+                    'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
+                }
+            };
 
-        const protocol = url.startsWith('https') ? https : http;
-        const req = protocol.get(url, options, (resp) => {
-            if (resp.statusCode >= 300 && resp.statusCode < 400 && resp.headers.location) {
-                return downloadImageBuffer(resp.headers.location).then(resolve);
-            }
-            if (resp.statusCode !== 200) return resolve(null);
+            const protocol = parsedUrl.protocol === 'https:' ? https : http;
+            const req = protocol.get(parsedUrl, options, (resp) => {
+                if (resp.statusCode >= 300 && resp.statusCode < 400 && resp.headers.location) {
+                    const redirectUrl = new URL(resp.headers.location, parsedUrl).href;
+                    return downloadImageBuffer(redirectUrl).then(resolve);
+                }
+                if (resp.statusCode !== 200) return resolve(null);
 
-            const contentType = resp.headers['content-type'] || 'image/jpeg';
-            const chunks = [];
-            resp.on('data', chunk => chunks.push(chunk));
-            resp.on('end', () => {
-                const buffer = Buffer.concat(chunks);
-                resolve({ buffer, contentType });
+                const contentType = resp.headers['content-type'] || 'image/jpeg';
+                const chunks = [];
+                resp.on('data', chunk => chunks.push(chunk));
+                resp.on('end', () => {
+                    const buffer = Buffer.concat(chunks);
+                    resolve({ buffer, contentType });
+                });
             });
-        });
 
-        req.on('error', () => resolve(null));
-        req.on('timeout', () => { req.destroy(); resolve(null); });
+            req.on('error', () => resolve(null));
+            req.on('timeout', () => { req.destroy(); resolve(null); });
+        } catch (err) {
+            resolve(null);
+        }
     });
 }
 
@@ -554,6 +562,102 @@ async function searchYouTube(query) {
     }
 }
 
+// ==================== 0. PSPKG Search (PlayStation Games Center - pspkg.com) ====================
+async function searchPSPKG(query) {
+    if (!query || !query.trim()) return null;
+
+    try {
+        const cleanQ = query.trim();
+
+        // 1. إذا قام المستخدم بلصق رابط مباشر من pspkg.com
+        if (cleanQ.includes('pspkg.com/')) {
+            const pageRes = await fetch(cleanQ, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+                }
+            });
+            if (pageRes.ok) {
+                const pageHtml = await pageRes.text();
+                const imgMatch = pageHtml.match(/src="(https:\/\/img\.pspkg\.com\/ps4\/image\/[^"]+)"/i) ||
+                                 pageHtml.match(/src="(https:\/\/img\.pspkg\.com\/[^"]+\.(?:webp|jpg|png|jpeg))"/i);
+                if (imgMatch && imgMatch[1]) {
+                    console.log(`🎮 PSPKG رابط مباشر: "${cleanQ}" -> ✅ ${imgMatch[1]}`);
+                    return {
+                        image: imgMatch[1],
+                        description: '',
+                        trailer: '',
+                        source: 'pspkg',
+                        gameName: query
+                    };
+                }
+            }
+        }
+
+        // 2. البحث التلقائي في قسم PS4 على pspkg.com
+        const searchUrl = `https://pspkg.com/ps4/?search=${encodeURIComponent(cleanQ)}`;
+        const res = await fetch(searchUrl, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9,ar;q=0.8'
+            }
+        });
+
+        if (!res.ok) return null;
+        const html = await res.text();
+
+        // استخراج بطاقات الألعاب والصور من pspkg.com
+        const imgRegex = /<img[^>]+src="(https:\/\/img\.pspkg\.com\/ps4\/image\/[^"]+)"[^>]*alt="([^"]*)"/gi;
+        let match;
+        const candidates = [];
+
+        while ((match = imgRegex.exec(html)) !== null) {
+            const imgUrl = match[1];
+            const altTitle = (match[2] || '').trim();
+            candidates.push({ title: altTitle, image: imgUrl });
+        }
+
+        if (candidates.length === 0) {
+            const genRegex = /src="(https:\/\/img\.pspkg\.com\/ps4\/image\/[^"]+\.(?:webp|jpg|jpeg|png)(?:\?[^"]*)?)"/gi;
+            while ((match = genRegex.exec(html)) !== null) {
+                candidates.push({ title: '', image: match[1] });
+            }
+        }
+
+        if (candidates.length === 0) {
+            console.log(`🎮 PSPKG: "${cleanQ}" -> ❌ لم يتم العثور على غلاف`);
+            return null;
+        }
+
+        // اختيار أفضل تطابق مع اسم اللعبة المطلوب
+        let bestMatch = candidates[0];
+        let bestScore = 0;
+
+        for (const cand of candidates) {
+            if (cand.title) {
+                const score = nameSimilarity(cleanQ, cand.title);
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestMatch = cand;
+                }
+            }
+        }
+
+        console.log(`🎮 PSPKG: "${cleanQ}" -> "${bestMatch.title || 'Game'}" (${bestScore.toFixed(2)}) -> ✅ ${bestMatch.image}`);
+        return {
+            image: bestMatch.image,
+            description: '',
+            trailer: '',
+            source: 'pspkg',
+            gameName: bestMatch.title || cleanQ
+        };
+    } catch (e) {
+        console.error('PSPKG error:', e.message);
+        return null;
+    }
+}
+
 // ==================== 7. SuperPSX Search ====================
 async function searchSuperPSX(query) {
     try {
@@ -692,15 +796,27 @@ async function searchGameImage(query, category = 'default') {
     const cleanedQuery = cleanGameName(query);
     console.log(`🧹 الاسم بعد التنظيف: "${cleanedQuery}"`);
 
-    // 0. جرب SuperPSX أولاً (بالاسم الأصلي والاسم المنظف)
-    let superpsx = await searchSuperPSX(query);
-    if (!superpsx || !superpsx.image) {
-        superpsx = await searchSuperPSX(cleanedQuery);
+    // 0. جرب موقع PSPKG أولاً (أغلفة بلايستيشن 4 أصلية 100%)
+    let pspkg = await searchPSPKG(query);
+    if (!pspkg || !pspkg.image) {
+        pspkg = await searchPSPKG(cleanedQuery);
+    }
+    if (pspkg && pspkg.image) {
+        result = { ...result, ...pspkg };
+        console.log(`✅ PSPKG Cover: ${pspkg.image}`);
     }
 
-    if (superpsx && superpsx.image) {
-        result = { ...result, ...superpsx };
-        console.log(`✅ SuperPSX Cover`);
+    // 1. جرب SuperPSX ثانياً
+    if (!result.image) {
+        let superpsx = await searchSuperPSX(query);
+        if (!superpsx || !superpsx.image) {
+            superpsx = await searchSuperPSX(cleanedQuery);
+        }
+
+        if (superpsx && superpsx.image) {
+            result = { ...result, ...superpsx };
+            console.log(`✅ SuperPSX Cover`);
+        }
     }
 
     // 1. جرب Steam أولاً
