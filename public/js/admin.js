@@ -854,7 +854,27 @@ function sendWhatsAppNotification(orderId) {
 }
 
 // ── Games ─────────────────────────────────────────────────────
-// ── Games ─────────────────────────────────────────────────────
+let adminFilterNew = false;
+
+function toggleAdminFilterNew() {
+  adminFilterNew = !adminFilterNew;
+  const btn = document.getElementById('adminFilterNewBtn');
+  if (btn) {
+    if (adminFilterNew) {
+      btn.classList.add('active');
+      btn.style.background = 'var(--clr-gold)';
+      btn.style.color = '#07050f';
+      btn.style.fontWeight = '700';
+    } else {
+      btn.classList.remove('active');
+      btn.style.background = '';
+      btn.style.color = '';
+      btn.style.fontWeight = '';
+    }
+  }
+  renderGames();
+}
+
 function renderGames() {
   const grid  = document.getElementById('adminGamesGrid');
   const input = document.getElementById('adminSearchInput');
@@ -867,11 +887,13 @@ function renderGames() {
   };
 
   const q = (input ? input.value : '').toLowerCase();
-  const filtered = allGames.filter(g =>
-    !q ||
-    g.name.toLowerCase().includes(q) ||
-    (g.nameAr || '').toLowerCase().includes(q)
-  );
+  let filtered = allGames.filter(g => {
+    const matchSearch = !q ||
+      g.name.toLowerCase().includes(q) ||
+      (g.nameAr || '').toLowerCase().includes(q);
+    const matchNew = !adminFilterNew || Boolean(g.isNew);
+    return matchSearch && matchNew;
+  });
 
   if (filtered.length === 0) {
     grid.innerHTML = `
@@ -882,8 +904,15 @@ function renderGames() {
     return;
   }
 
-  grid.innerHTML = filtered.map(game => `
-    <div class="admin-game-card">
+  // Sort alphabetically by default
+  const sorted = [...filtered].sort((a, b) => {
+    const nameA = ((a.nameAr && a.nameAr.trim()) ? a.nameAr.trim() : (a.name || '')).trim();
+    const nameB = ((b.nameAr && b.nameAr.trim()) ? b.nameAr.trim() : (b.name || '')).trim();
+    return nameA.localeCompare(nameB, ['ar', 'en'], { numeric: true, sensitivity: 'base' });
+  });
+
+  grid.innerHTML = sorted.map(game => `
+    <div class="admin-game-card ${game.isNew ? 'is-new' : ''}">
       <img
         class="admin-game-card__img"
         src="${game.image || ''}"
@@ -892,7 +921,10 @@ function renderGames() {
         loading="lazy"
       >
       <div class="admin-game-card__body">
-        <div class="admin-game-card__name">${game.nameAr || game.name}</div>
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:6px;">
+          <div class="admin-game-card__name">${game.nameAr || game.name}</div>
+          ${game.isNew ? '<span class="admin-badge-new"><i class="fas fa-fire"></i> جديد</span>' : ''}
+        </div>
         <div class="admin-game-card__meta">
           <span><i class="fas fa-hdd" style="font-size:0.65rem;margin-left:3px;"></i>هارد ${game.hardDrive || '1'}</span>
           <span>${game.size || ''}</span>
@@ -903,6 +935,14 @@ function renderGames() {
       <div class="admin-game-card__actions">
         <button class="btn btn-ghost btn-sm" style="flex:1;" onclick="openEditGameModal('${game.id}')">
           <i class="fas fa-edit"></i> تعديل
+        </button>
+        <button 
+          class="btn btn-ghost btn-sm btn-toggle-new ${game.isNew ? 'active' : ''}" 
+          onclick="quickToggleNew('${game.id}')" 
+          title="${game.isNew ? 'إلغاء تمييز اللعبة كـ جديدة' : 'تمييز اللعبة كـ جديدة للزبائن'}"
+        >
+          <i class="fas fa-fire" style="color:${game.isNew ? 'var(--clr-gold)' : 'var(--clr-text-muted)'};"></i>
+          ${game.isNew ? 'جديد 🔥' : 'عادي'}
         </button>
         <button class="btn btn-ghost btn-sm" onclick="refreshGameImage('${game.id}')" title="تحديث الصورة والشرح تلقائياً">
           <i class="fas fa-sync-alt"></i>
@@ -915,10 +955,30 @@ function renderGames() {
   `).join('');
 }
 
+async function quickToggleNew(id) {
+  const game = allGames.find(g => g.id === id);
+  if (!game) return;
+
+  try {
+    const res = await fetch(`/api/games/${id}/toggle-new`, { method: 'PATCH' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تحديث الحالة');
+
+    game.isNew = data.isNew;
+    renderGames();
+    showToast(data.isNew ? 'تم تمييز اللعبة كـ جديدة 🔥' : 'تم إلغاء وسم اللعبة الجديدة');
+  } catch (err) {
+    showToast(err.message || 'خطأ أثناء التحديث', 'error');
+  }
+}
+
 function openGameModal() {
   document.getElementById('gameForm').reset();
   document.getElementById('gameEditId').value = '';
   document.getElementById('gameModalTitle').textContent = 'إضافة لعبة جديدة';
+  if (document.getElementById('gameIsNew')) {
+    document.getElementById('gameIsNew').checked = true; // New games default to checked!
+  }
   // إخفاء المعاينة عند فتح نموذج جديد
   const preview = document.getElementById('gameImagePreview');
   if (preview) preview.style.display = 'none';
@@ -947,6 +1007,9 @@ function openEditGameModal(id) {
       document.getElementById('gameTrailer').value = game.trailer || '';
   }
   document.getElementById('gameDescription').value = game.description || '';
+  if (document.getElementById('gameIsNew')) {
+    document.getElementById('gameIsNew').checked = Boolean(game.isNew);
+  }
 
   // معاينة الصورة الحالية
   const isCustom = game.image && game.image.startsWith('/images/games/custom_');
@@ -1234,7 +1297,8 @@ async function saveGame(e) {
     hardDrive:   document.getElementById('gameHardDrive').value,
     image:       document.getElementById('gameImage').value.trim(),
     trailer:     document.getElementById('gameTrailer') ? document.getElementById('gameTrailer').value.trim() : '',
-    description: document.getElementById('gameDescription').value.trim()
+    description: document.getElementById('gameDescription').value.trim(),
+    isNew:       document.getElementById('gameIsNew') ? document.getElementById('gameIsNew').checked : true
   };
 
   const btn  = e.target.querySelector('button[type="submit"]') ||

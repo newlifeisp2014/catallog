@@ -23,6 +23,7 @@ async function initTables() {
                 notes TEXT DEFAULT '',
                 available BOOLEAN DEFAULT true,
                 hard_drive VARCHAR(50) DEFAULT '1',
+                is_new BOOLEAN DEFAULT false,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
@@ -33,7 +34,8 @@ async function initTables() {
             ADD COLUMN IF NOT EXISTS trailer TEXT DEFAULT '',
             ADD COLUMN IF NOT EXISTS notes TEXT DEFAULT '',
             ADD COLUMN IF NOT EXISTS available BOOLEAN DEFAULT true,
-            ADD COLUMN IF NOT EXISTS hard_drive VARCHAR(50) DEFAULT '1';
+            ADD COLUMN IF NOT EXISTS hard_drive VARCHAR(50) DEFAULT '1',
+            ADD COLUMN IF NOT EXISTS is_new BOOLEAN DEFAULT false;
         `).catch(err => console.log('Games column add error:', err.message));
 
         // Orders table

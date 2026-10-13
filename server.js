@@ -44,7 +44,7 @@ async function initDB() {
 
                 for (const game of defaultGames) {
                     await pool.query(
-                        'INSERT INTO games (id, name, name_ar, price, size, category, image, hard_drive) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (id) DO NOTHING',
+                        'INSERT INTO games (id, name, name_ar, price, size, category, image, hard_drive, is_new) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, false) ON CONFLICT (id) DO NOTHING',
                         [game.id, game.name, game.nameAr, game.price, game.size, game.category, game.image, game.hardDrive]
                     );
                 }

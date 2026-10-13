@@ -12,10 +12,11 @@ if ('serviceWorker' in navigator) {
 }
 
 // ── State ─────────────────────────────────────────────────────
-let allGames    = [];
-let cart        = JSON.parse(localStorage.getItem('nl_cart') || '[]');
-let searchQuery = '';
+let allGames       = [];
+let cart           = JSON.parse(localStorage.getItem('nl_cart') || '[]');
+let searchQuery    = '';
 let activeCategory = 'all';
+let currentSort    = 'alpha'; // Alphabetical by default!
 
 
 // ── DOM Refs ──────────────────────────────────────────────────
@@ -33,12 +34,45 @@ document.addEventListener('DOMContentLoaded', () => {
   setupListeners();
 });
 
+// ── Sorting Helpers ───────────────────────────────────────────
+function getGameDisplayName(game) {
+  return ((game.nameAr && game.nameAr.trim()) ? game.nameAr.trim() : (game.name || '')).trim();
+}
+
+function sortGamesList(list, sortType = currentSort) {
+  return list.slice().sort((a, b) => {
+    if (sortType === 'alpha') {
+      const nameA = getGameDisplayName(a);
+      const nameB = getGameDisplayName(b);
+      return nameA.localeCompare(nameB, ['ar', 'en'], { numeric: true, sensitivity: 'base' });
+    }
+    if (sortType === 'newest') {
+      if (b.isNew !== a.isNew) return b.isNew ? 1 : -1;
+      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return dateB - dateA;
+    }
+    if (sortType === 'priceAsc') {
+      return (Number(a.price) || 0) - (Number(b.price) || 0);
+    }
+    if (sortType === 'priceDesc') {
+      return (Number(b.price) || 0) - (Number(a.price) || 0);
+    }
+    return 0;
+  });
+}
+
+function handleSortChange(newSort) {
+  currentSort = newSort;
+  renderGames(true);
+}
+
 // ── Fetch Games ───────────────────────────────────────────────
 async function fetchGames() {
   gamesGrid.innerHTML = `<div class="loader"><div class="spinner"></div></div>`;
 
   try {
-    const res  = await fetch('/api/games');
+    const res  = await fetch('/api/games?limit=2000');
     const data = await res.json();
     allGames   = data.data || [];
     renderGames();
@@ -63,13 +97,23 @@ function renderGames(resetLimit = true) {
     const matchSearch = !q ||
       g.name.toLowerCase().includes(q) ||
       (g.nameAr || '').toLowerCase().includes(q);
-    const matchCat = activeCategory === 'all' || g.category === activeCategory;
+    const matchCat = activeCategory === 'all' ||
+      (activeCategory === 'isNew' ? Boolean(g.isNew) : g.category === activeCategory);
     return matchSearch && matchCat && g.available !== false;
   });
 
+  const countText = document.getElementById('gamesCountText');
+  if (countText) {
+    if (activeCategory === 'isNew') {
+      countText.innerHTML = `عرض <strong>${filtered.length}</strong> لعبة مضافة حديثاً 🔥`;
+    } else {
+      countText.innerHTML = `عرض <strong>${filtered.length}</strong> لعبة (مرتبة أبجدياً)`;
+    }
+  }
+
   if (filtered.length === 0) {
     gamesGrid.innerHTML = `
-      <div class="empty-state">
+      <div class="empty-state" style="grid-column:1/-1;">
         <div class="empty-state__icon"><i class="fas fa-search"></i></div>
         <div class="empty-state__title">لا توجد نتائج</div>
         <p style="color:var(--clr-text-muted);font-size:0.88rem;">جرب كلمة بحث أخرى أو تصنيف مختلف</p>
@@ -77,8 +121,11 @@ function renderGames(resetLimit = true) {
     return;
   }
 
+  // Sort games (alphabetical by default)
+  const sorted = sortGamesList(filtered, currentSort);
+
   gamesGrid.innerHTML = '';
-  const gamesToShow = filtered.slice(0, currentRenderLimit);
+  const gamesToShow = sorted.slice(0, currentRenderLimit);
   
   gamesToShow.forEach((game, i) => {
     const inCart  = cart.some(c => c.id === game.id);
@@ -86,7 +133,7 @@ function renderGames(resetLimit = true) {
     gamesGrid.appendChild(card);
   });
 
-  if (currentRenderLimit < filtered.length) {
+  if (currentRenderLimit < sorted.length) {
     const loadMoreWrapper = document.createElement('div');
     loadMoreWrapper.id = 'loadMoreTrigger';
     loadMoreWrapper.style.gridColumn = '1 / -1';
@@ -97,7 +144,7 @@ function renderGames(resetLimit = true) {
       <div style="display:flex; flex-direction:column; align-items:center; gap:10px; color:var(--clr-text-muted);">
         <i class="fas fa-spinner fa-spin" style="font-size: 1.5rem; color:var(--clr-primary);"></i>
         <div style="font-size:0.9rem; font-weight:600;">جاري تحميل المزيد من الألعاب...</div>
-        <div style="font-size:0.75rem;">عرض ${currentRenderLimit} من أصل ${filtered.length} لعبة</div>
+        <div style="font-size:0.75rem;">عرض ${currentRenderLimit} من أصل ${sorted.length} لعبة</div>
       </div>
     `;
     gamesGrid.appendChild(loadMoreWrapper);
@@ -109,11 +156,10 @@ function renderGames(resetLimit = true) {
     
     window.infiniteScrollObserver = new IntersectionObserver((entries) => {
       if (entries[0].isIntersecting) {
-        // إيقاف المراقبة لتجنب استدعاء مزدوج حتى يتم الرندر الجديد
         window.infiniteScrollObserver.disconnect();
         loadMoreGames();
       }
-    }, { rootMargin: '300px' }); // يبدأ التحميل قبل 300 بكسل من الوصول لنهاية الشاشة
+    }, { rootMargin: '300px' });
     
     window.infiniteScrollObserver.observe(loadMoreWrapper);
   }
@@ -127,7 +173,8 @@ function loadMoreGames() {
 // ── Build Game Card ───────────────────────────────────────────
 function buildGameCard(game, inCart, index) {
   const card = document.createElement('div');
-  card.className = `game-card ${inCart ? 'in-cart' : ''}`;
+  const isNew = Boolean(game.isNew);
+  card.className = `game-card ${inCart ? 'in-cart' : ''} ${isNew ? 'is-new' : ''}`;
   card.setAttribute('role', 'listitem');
   card.setAttribute('data-id', game.id);
   card.style.animationDelay = `${index * 0.04}s`;
@@ -148,6 +195,12 @@ function buildGameCard(game, inCart, index) {
         loading="lazy"
         onerror="this.src='https://placehold.co/400x600/110e20/7c3aed?text=🎮'"
       >
+      ${isNew ? `
+        <div class="game-card__badge-new" title="لعبة جديدة مضافة حديثاً">
+          <i class="fas fa-fire-flame-curved"></i>
+          <span>جديد</span>
+        </div>
+      ` : ''}
       <div class="game-card__badge">
         <i class="fas fa-hdd" style="font-size:0.65rem;margin-left:3px;"></i>
         هارد ${game.hardDrive || '1'}
@@ -168,7 +221,10 @@ function buildGameCard(game, inCart, index) {
       </div>
     </div>
     <div class="game-card__body" onclick="openGameDetailModal('${game.id}')">
-      <div class="game-card__title">${game.nameAr || game.name}</div>
+      <div class="game-card__title">
+        ${game.nameAr || game.name}
+        ${isNew ? '<span class="game-card__new-tag" style="margin-right:6px;"><i class="fas fa-fire"></i> جديد</span>' : ''}
+      </div>
       <div class="game-card__meta">
         <span><i class="fas fa-tag" style="font-size:0.65rem;margin-left:3px;"></i>${catLabel[game.category] || game.category}</span>
         <span>${game.size || ''}</span>
@@ -506,7 +562,19 @@ function openGameDetailModal(gameId) {
     }
   }
 
+  const isNew = Boolean(game.isNew);
+
   body.innerHTML = `
+    ${isNew ? `
+      <div class="game-detail__new-alert">
+        <i class="fas fa-fire-flame-curved"></i>
+        <div>
+          <div style="font-weight:800; font-size:0.95rem; color:#fff;">لعبة جديدة مضافة حديثاً! 🔥</div>
+          <div style="font-size:0.8rem; color:rgba(255,255,255,0.8); margin-top:2px;">تمت إضافة هذه اللعبة مؤخراً إلى مكتبة الألعاب.</div>
+        </div>
+      </div>
+    ` : ''}
+
     <div style="display:flex; gap:1rem; align-items:flex-start; flex-wrap:wrap;">
       <img
         src="${game.image || ''}"
@@ -519,6 +587,7 @@ function openGameDetailModal(gameId) {
         <div style="font-size:0.85rem; color:var(--clr-text-muted); font-family:var(--font-en);">${game.name}</div>
         
         <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.25rem;">
+          ${isNew ? `<span class="badge" style="background:linear-gradient(135deg,#ef4444,#f59e0b); color:#fff; border:none; font-size:0.75rem;"><i class="fas fa-fire" style="margin-left:3px;"></i>جديد</span>` : ''}
           <span class="badge badge-pending" style="font-size:0.75rem;"><i class="fas fa-tag" style="margin-left:3px;"></i>${catLabel[game.category] || game.category}</span>
           <span class="badge badge-confirmed" style="font-size:0.75rem;"><i class="fas fa-hdd" style="margin-left:3px;"></i>هارد ${game.hardDrive || '1'}</span>
           <span class="badge badge-delivered" style="font-size:0.75rem;"><i class="fas fa-database" style="margin-left:3px;"></i>${game.size || ''}</span>

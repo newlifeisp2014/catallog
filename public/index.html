@@ -89,6 +89,9 @@
     <!-- Category Filters -->
     <div class="filter-tabs animate-fade-up" id="filterTabs" style="animation-delay:0.25s" role="group" aria-label="تصفية حسب التصنيف">
       <button class="filter-tab active" data-cat="all" id="filter-all">الكل</button>
+      <button class="filter-tab filter-tab--new" data-cat="isNew" id="filter-new">
+        <i class="fas fa-fire-flame-curved" style="color:var(--clr-gold);margin-left:4px;"></i> أحدث الإضافات
+      </button>
       <button class="filter-tab" data-cat="CoOp" id="filter-CoOp">ألعاب زوجية</button>
       <button class="filter-tab" data-cat="Action" id="filter-Action">أكشن</button>
       <button class="filter-tab" data-cat="Sports" id="filter-Sports">رياضة</button>
@@ -103,6 +106,25 @@
 
   <!-- ─── Games Grid ─── -->
   <main class="container" id="mainContent" role="main">
+    <div class="catalog-toolbar animate-fade-up" style="animation-delay:0.3s">
+      <div class="catalog-toolbar__count" id="gamesCountBadge">
+        <i class="fas fa-gamepad" style="color:var(--clr-primary-light);"></i>
+        <span id="gamesCountText">جاري تحميل الألعاب...</span>
+      </div>
+      <div class="catalog-toolbar__sort">
+        <label for="sortSelect" class="catalog-toolbar__label">
+          <i class="fas fa-arrow-down-a-z" style="color:var(--clr-gold);"></i>
+          <span>الترتيب:</span>
+        </label>
+        <select id="sortSelect" class="catalog-sort-select" onchange="handleSortChange(this.value)" aria-label="ترتيب الألعاب">
+          <option value="alpha" selected>أبجدياً (أ - ي)</option>
+          <option value="newest">الأحدث أولاً (جديد 🔥)</option>
+          <option value="priceAsc">السعر: من الأقل للأعلى</option>
+          <option value="priceDesc">السعر: من الأعلى للأقل</option>
+        </select>
+      </div>
+    </div>
+
     <div class="games-grid" id="gamesGrid" role="list" aria-label="قائمة الألعاب">
       <!-- Games rendered via JS -->
     </div>

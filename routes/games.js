@@ -574,13 +574,14 @@ async function searchGameImage(query, category = 'default') {
 
 
 
-// Get all games (public) with pagination
+// Get all games (public) with pagination and sorting
 router.get('/', async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 1000;
         const offset = (page - 1) * limit;
         const category = req.query.category;
+        const sort = req.query.sort || 'alpha';
 
         let queryStr = 'SELECT * FROM games';
         let params = [];
@@ -588,13 +589,29 @@ router.get('/', async (req, res) => {
         let countParams = [];
 
         if (category && category !== 'all') {
-            queryStr += ' WHERE category = $1';
-            countQueryStr += ' WHERE category = $1';
-            params.push(category);
-            countParams.push(category);
+            if (category === 'isNew') {
+                queryStr += ' WHERE is_new = true';
+                countQueryStr += ' WHERE is_new = true';
+            } else {
+                queryStr += ' WHERE category = $1';
+                countQueryStr += ' WHERE category = $1';
+                params.push(category);
+                countParams.push(category);
+            }
         }
 
-        queryStr += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+        let orderBy = 'ORDER BY LOWER(COALESCE(NULLIF(name_ar, \'\'), name)) ASC';
+        if (sort === 'newest') {
+            orderBy = 'ORDER BY is_new DESC, created_at DESC';
+        } else if (sort === 'price_asc') {
+            orderBy = 'ORDER BY price ASC';
+        } else if (sort === 'price_desc') {
+            orderBy = 'ORDER BY price DESC';
+        } else if (sort === 'alpha') {
+            orderBy = 'ORDER BY LOWER(COALESCE(NULLIF(name_ar, \'\'), name)) ASC';
+        }
+
+        queryStr += ` ${orderBy} LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
         params.push(limit, offset);
 
         const result = await pool.query(queryStr, params);
@@ -613,7 +630,9 @@ router.get('/', async (req, res) => {
             trailer: row.trailer,
             notes: row.notes,
             available: row.available,
-            hardDrive: row.hard_drive
+            hardDrive: row.hard_drive,
+            isNew: Boolean(row.is_new),
+            createdAt: row.created_at
         }));
 
         res.json({
@@ -631,7 +650,7 @@ router.get('/', async (req, res) => {
 // Add new game (Protected) - مع جلب صورة تلقائي
 router.post('/', verifyToken, async (req, res) => {
     try {
-        const { name, nameAr, price, size, category, image, description, trailer, notes, hardDrive } = req.body;
+        const { name, nameAr, price, size, category, image, description, trailer, notes, hardDrive, isNew } = req.body;
 
         if (!name || !price || !size || !category) {
             return res.status(400).json({ error: 'يرجى ملء كافة الحقول الأساسية (الاسم، السعر، الحجم، التصنيف)' });
@@ -639,6 +658,7 @@ router.post('/', verifyToken, async (req, res) => {
 
         const id = 'ps4_' + Date.now().toString().slice(-6);
         const finalNameAr = (nameAr && nameAr.trim() !== '') ? nameAr.trim() : name.trim();
+        const finalIsNew = (isNew !== undefined) ? Boolean(isNew) : true;
 
         let finalImage = image ? image.trim() : '';
         let finalDescription = description || '';
@@ -676,14 +696,15 @@ router.post('/', verifyToken, async (req, res) => {
         }
 
         await pool.query(
-            'INSERT INTO games (id, name, name_ar, price, size, category, image, description, trailer, notes, hard_drive) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)',
-            [id, name.trim(), finalNameAr, price, size, category, finalImage, finalDescription, finalTrailer, notes || '', hardDrive || '1']
+            'INSERT INTO games (id, name, name_ar, price, size, category, image, description, trailer, notes, hard_drive, is_new) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)',
+            [id, name.trim(), finalNameAr, price, size, category, finalImage, finalDescription, finalTrailer, notes || '', hardDrive || '1', finalIsNew]
         );
 
         res.json({
             id, name: name.trim(), nameAr: finalNameAr, price, size, category,
             image: finalImage, description: finalDescription,
-            trailer: finalTrailer, notes, hardDrive: hardDrive || '1'
+            trailer: finalTrailer, notes, hardDrive: hardDrive || '1',
+            isNew: finalIsNew
         });
     } catch (error) {
         console.error('Error adding game:', error);
@@ -695,16 +716,35 @@ router.post('/', verifyToken, async (req, res) => {
 router.put('/:id', verifyToken, async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, nameAr, price, size, category, image, description, trailer, notes, hardDrive } = req.body;
+        const { name, nameAr, price, size, category, image, description, trailer, notes, hardDrive, isNew } = req.body;
+
+        const isNewParam = (isNew !== undefined) ? Boolean(isNew) : null;
 
         await pool.query(
-            'UPDATE games SET name = $1, name_ar = $2, price = $3, size = $4, category = $5, image = $6, description = $7, trailer = $8, notes = $9, hard_drive = $10 WHERE id = $11',
-            [name, nameAr, price, size, category, image, description || '', trailer || '', notes || '', hardDrive || '1', id]
+            'UPDATE games SET name = $1, name_ar = $2, price = $3, size = $4, category = $5, image = $6, description = $7, trailer = $8, notes = $9, hard_drive = $10, is_new = COALESCE($11, is_new) WHERE id = $12',
+            [name, nameAr, price, size, category, image, description || '', trailer || '', notes || '', hardDrive || '1', isNewParam, id]
         );
 
-        res.json({ id, name, nameAr, price, size, category, image, description, trailer, notes, hardDrive: hardDrive || '1' });
+        res.json({ id, name, nameAr, price, size, category, image, description, trailer, notes, hardDrive: hardDrive || '1', isNew: isNewParam });
     } catch (error) {
         console.error('Error updating game:', error);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
+// Toggle game is_new status (Protected)
+router.patch('/:id/toggle-new', verifyToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const current = await pool.query('SELECT is_new FROM games WHERE id = $1', [id]);
+        if (current.rows.length === 0) {
+            return res.status(404).json({ error: 'اللعبة غير موجودة' });
+        }
+        const newStatus = !current.rows[0].is_new;
+        await pool.query('UPDATE games SET is_new = $1 WHERE id = $2', [newStatus, id]);
+        res.json({ success: true, isNew: newStatus });
+    } catch (error) {
+        console.error('Error toggling is_new status:', error);
         res.status(500).json({ error: 'Database error' });
     }
 });

@@ -4,7 +4,7 @@
 #   يراقب الملفات ويرفع تلقائياً على GitHub
 # ==========================================
 
-$ProjectPath = "C:\Users\Newlife\Desktop\catallog-main"
+$ProjectPath = if ($PSScriptRoot) { $PSScriptRoot } else { "C:\Users\Newlife\Desktop\catallog-main" }
 $CheckInterval = 30  # ثواني بين كل فحص
 
 Write-Host ""
