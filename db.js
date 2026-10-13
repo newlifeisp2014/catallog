@@ -97,6 +97,18 @@ async function initTables() {
             )
         `);
 
+        // Game images table (Permanent PostgreSQL storage so images never disappear on deployments)
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS game_images (
+                id VARCHAR(100) PRIMARY KEY,
+                image_data TEXT NOT NULL,
+                mime_type VARCHAR(50) DEFAULT 'image/jpeg',
+                source_url TEXT DEFAULT '',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
         // Indexes
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)`);
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_orders_phone ON orders(customer_phone)`);

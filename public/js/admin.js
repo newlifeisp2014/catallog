@@ -972,6 +972,51 @@ async function quickToggleNew(id) {
   }
 }
 
+// ── Category Predictor ────────────────────────────────────────
+const GENRE_RULES = [
+  { cat: 'Horror', regex: /\b(resident evil|silent hill|outlast|dead space|the evil within|amnesia|alien isolation|fnaf|five nights|alan wake|fatal frame|fear|dying light|left 4 dead|the last of us|phasmophobia|the medium|call of cthulhu|man of medan|little nightmares|layers of fear|until dawn|the quarry|slender|visage|tormented souls|رعب|زومبي|مخيف|وحوش)\b/i },
+  { cat: 'Fighting', regex: /\b(mortal kombat|tekken|street fighter|injustice|dragon ball|naruto|guilty gear|smash bros|soulcalibur|king of fighters|dead or alive|jump force|wwe|ufc|boxing|brawlhalla|قتال|مصارعة|ملاكمة|حلبة)\b/i },
+  { cat: 'Sports', regex: /\b(fifa|fc 24|fc 25|pes|efootball|nba|wwe|tony hawk|skate|tennis|golf|f1|formula|madden|كرة قدم|رياضة|سلة|فيفا|بيس)\b/i },
+  { cat: 'Racing', regex: /\b(forza|need for speed|nfs|gran turismo|dirt|f1|burnout|asphalt|grid|the crew|project cars|assetto corsa|moto|kart|سباق|سيارات|هجولة)\b/i },
+  { cat: 'Shooter', regex: /\b(call of duty|cod|battlefield|doom|wolfenstein|halo|counter strike|csgo|cs2|valorant|overwatch|rainbow six|far cry|metro|titanfall|borderlands|destiny|pubg|warzone|apex legends|sniper|payday|تصويب|شوتر|اطلاق نار|قنص)\b/i },
+  { cat: 'CoOp', regex: /\b(it takes two|a way out|overcooked|unravel two|portal 2|cuphead|human fall flat|moving out|brothers|lovers in|helldivers|army of two|زوجي|لعب مشترك|تعاوني|شخصين)\b/i },
+  { cat: 'RPG', regex: /\b(witcher|elden ring|dark souls|bloodborne|sekiro|skyrim|fallout|final fantasy|persona|monster hunter|baldurs gate|diablo|dragon age|mass effect|cyberpunk|starfield|hogwarts legacy|lies of p|demon souls|آر بي جي|تقمص)\b/i },
+  { cat: 'Adventure', regex: /\b(uncharted|tomb raider|assassin's creed|assassins creed|zelda|ghost of tsushima|red dead|rdr2|horizon|death stranding|shadow of the colossus|stray|god of war|journey|kotor|مغامرة|مغامرات)\b/i },
+  { cat: 'Action', regex: /\b(devil may cry|dmc|batman|spider-man|spiderman|gta|grand theft auto|yakuza|just cause|sleeping dogs|mad max|watch dogs|prototype|bayonetta|hitman|mafia|أكشن|اكشن|حركة)\b/i }
+];
+
+function predictCategory(text) {
+  if (!text) return null;
+  for (const rule of GENRE_RULES) {
+    if (rule.regex.test(text)) return rule.cat;
+  }
+  return null;
+}
+
+function handleGameNameInput() {
+  const isEditing = Boolean(document.getElementById('gameEditId')?.value);
+  if (isEditing) return;
+
+  const nameEn = document.getElementById('gameName')?.value || '';
+  const nameAr = document.getElementById('gameNameAr')?.value || '';
+  const cat = predictCategory(`${nameEn} ${nameAr}`);
+  const catInput = document.getElementById('gameCategory');
+  const badge = document.getElementById('autoCategoryBadge');
+
+  if (cat && catInput) {
+    catInput.value = cat;
+    if (badge) {
+      badge.style.display = 'inline-flex';
+      const catLabel = {
+        Horror: 'رعب', Fighting: 'قتال', Sports: 'رياضة', Racing: 'سباق',
+        Shooter: 'تصويب', CoOp: 'ألعاب زوجية', RPG: 'آر بي جي',
+        Adventure: 'مغامرة', Action: 'أكشن'
+      };
+      badge.innerHTML = `<i class="fas fa-magic" style="margin-left:4px;"></i> تلقائي: ${catLabel[cat] || cat}`;
+    }
+  }
+}
+
 function openGameModal() {
   document.getElementById('gameForm').reset();
   document.getElementById('gameEditId').value = '';
@@ -979,6 +1024,8 @@ function openGameModal() {
   if (document.getElementById('gameIsNew')) {
     document.getElementById('gameIsNew').checked = true; // New games default to checked!
   }
+  const autoBadge = document.getElementById('autoCategoryBadge');
+  if (autoBadge) autoBadge.style.display = 'none';
   // إخفاء المعاينة عند فتح نموذج جديد
   const preview = document.getElementById('gameImagePreview');
   if (preview) preview.style.display = 'none';
@@ -1011,9 +1058,13 @@ function openEditGameModal(id) {
     document.getElementById('gameIsNew').checked = Boolean(game.isNew);
   }
 
+  const autoBadge = document.getElementById('autoCategoryBadge');
+  if (autoBadge) autoBadge.style.display = 'none';
+
   // معاينة الصورة الحالية
   const isCustom = game.image && game.image.startsWith('/images/games/custom_');
-  updateImagePreview(game.image || '', isCustom ? '📸 صورة مخصصة' : '');
+  const isDb = game.image && game.image.includes('/api/games/image/');
+  updateImagePreview(game.image || '', isDb ? '💾 قاعدة البيانات' : (isCustom ? '📸 صورة مخصصة' : ''));
 
   document.getElementById('gameModalTitle').textContent = 'تعديل اللعبة';
   document.getElementById('gameModal').classList.add('active');
@@ -1028,7 +1079,7 @@ async function fetchGameDetailsOnline() {
     return;
   }
 
-  showToast('جاري البحث عن صورة وشرح اللعبة...', 'info');
+  showToast('جاري البحث عن تفاصيل وصورة وتصنيف اللعبة...', 'info');
 
   try {
     const res  = await fetch(`/api/games/search-image?q=${encodeURIComponent(query)}&category=${encodeURIComponent(catInput.value)}`);
@@ -1039,9 +1090,23 @@ async function fetchGameDetailsOnline() {
       if (data.description && !document.getElementById('gameDescription').value) {
         document.getElementById('gameDescription').value = data.description;
       }
-      // معاينة الصورة المجلوبة تلقائياً
-      updateImagePreview(data.image, 'تلقائي');
-      showToast('تم جلب صورة وشرح اللعبة بنجاح! ✨');
+      if (data.category) {
+        catInput.value = data.category;
+        const badge = document.getElementById('autoCategoryBadge');
+        if (badge) {
+          const catLabel = {
+            Horror: 'رعب', Fighting: 'قتال', Sports: 'رياضة', Racing: 'سباق',
+            Shooter: 'تصويب', CoOp: 'ألعاب زوجية', RPG: 'آر بي جي',
+            Adventure: 'مغامرة', Action: 'أكشن'
+          };
+          badge.style.display = 'inline-flex';
+          badge.innerHTML = `<i class="fas fa-magic" style="margin-left:4px;"></i> تم التحديد تلقائياً: ${catLabel[data.category] || data.category}`;
+        }
+      }
+      // معاينة الصورة المجلوبة تلقائياً (من الداتابيز مباشرة)
+      const isDbImage = data.image.includes('/api/games/image/');
+      updateImagePreview(data.image, isDbImage ? '💾 قاعدة البيانات' : 'تلقائي');
+      showToast('تم جلب صورة وتفاصيل وتصنيف اللعبة بنجاح! ✨');
     } else {
       showToast('لم يتم العثور على صورة تلقائية للعبة', 'info');
     }
@@ -1278,6 +1343,71 @@ async function bulkRefreshImages(type) {
     if (btn) {
       btn.disabled = false;
       btn.innerHTML = originalHtml;
+    }
+  }
+}
+
+async function autoCategorizeAllGames() {
+  if (!confirm('هل تريد تصنيف جميع ألعاب المتجر تلقائياً حسب نوعها (رعب، قتال، رياضة، سباق، ألخ)؟\nسيقوم النظام بفحص جميع الألعاب وتصنيفها فوراً.')) return;
+
+  const btn = document.querySelector('button[onclick="autoCategorizeAllGames()"]');
+  const origText = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري التصنيف...';
+  }
+
+  try {
+    showToast('جاري تصنيف جميع الألعاب تلقائياً...', 'info');
+    const res = await fetch('/api/games/auto-categorize-all', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل التصنيف التلقائي');
+
+    showToast(`⚡ اكتمل التصنيف بنجاح! تم تحديث ${data.updatedCount || 0} لعبة.`);
+    await loadData();
+  } catch (err) {
+    console.error('autoCategorizeAllGames error:', err);
+    showToast(err.message || 'حدث خطأ أثناء التصنيف', 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = origText;
+    }
+  }
+}
+
+async function syncImagesToDB() {
+  if (!confirm('هل تريد حفظ وتأمين جميع صور الألعاب داخل قاعدة البيانات (PostgreSQL) بشكل دائمي؟\nهذا يضمن بقاء جميع الصور حتى بعد أي تعديل أو إعادة نشر للمشروع.')) return;
+
+  const btn = document.querySelector('button[onclick="syncImagesToDB()"]');
+  const origText = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري حفظ وتأمين الصور...';
+  }
+
+  showToast('بدء فحص وتخزين الصور داخل قاعدة البيانات...', 'info');
+
+  try {
+    const res = await fetch('/api/games/sync-images-to-db', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل حفظ الصور');
+
+    showToast(`💾 تم تأمين الصور بنجاح! تم حفظ وتحديث ${data.savedCount || 0} صورة في قاعدة البيانات.`);
+    await loadData();
+  } catch (err) {
+    console.error('syncImagesToDB error:', err);
+    showToast(err.message || 'حدث خطأ أثناء حفظ الصور', 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = origText;
     }
   }
 }

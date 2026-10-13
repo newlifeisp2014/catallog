@@ -5,6 +5,7 @@ const router = express.Router();
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
+const http = require('http');
 
 // ==================== إعدادات ====================
 const UNSPLASH_ACCESS_KEY = process.env.UNSPLASH_ACCESS_KEY || '';
@@ -15,9 +16,213 @@ if (!fs.existsSync(IMAGES_DIR)) {
     fs.mkdirSync(IMAGES_DIR, { recursive: true });
 }
 
-// ==================== دوال مساعدة ====================
+// ==================== دوال تخزين الصور في قاعدة البيانات (PostgreSQL) ====================
 
-// تحميل صورة وحفظها محلياً
+// تحميل الصورة كـ Buffer ثنائي
+function downloadImageBuffer(url) {
+    return new Promise((resolve) => {
+        if (!url || url.includes('placehold.co')) return resolve(null);
+
+        const options = {
+            timeout: 15000,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
+            }
+        };
+
+        const protocol = url.startsWith('https') ? https : http;
+        const req = protocol.get(url, options, (resp) => {
+            if (resp.statusCode >= 300 && resp.statusCode < 400 && resp.headers.location) {
+                return downloadImageBuffer(resp.headers.location).then(resolve);
+            }
+            if (resp.statusCode !== 200) return resolve(null);
+
+            const contentType = resp.headers['content-type'] || 'image/jpeg';
+            const chunks = [];
+            resp.on('data', chunk => chunks.push(chunk));
+            resp.on('end', () => {
+                const buffer = Buffer.concat(chunks);
+                resolve({ buffer, contentType });
+            });
+        });
+
+        req.on('error', () => resolve(null));
+        req.on('timeout', () => { req.destroy(); resolve(null); });
+    });
+}
+
+// حفظ الصورة مباشرة في جدول game_images بقاعدة البيانات (حفظ دائم لا يضيع أبداً مع أي تعديل أو إعادة رفع)
+async function saveGameImageToDB(id, bufferOrDataUrl, mimeType = 'image/jpeg', sourceUrl = '') {
+    try {
+        let dataUri = '';
+        if (typeof bufferOrDataUrl === 'string' && bufferOrDataUrl.startsWith('data:image/')) {
+            dataUri = bufferOrDataUrl;
+        } else if (Buffer.isBuffer(bufferOrDataUrl)) {
+            dataUri = `data:${mimeType};base64,${bufferOrDataUrl.toString('base64')}`;
+        } else {
+            return false;
+        }
+
+        await pool.query(`
+            INSERT INTO game_images (id, image_data, mime_type, source_url, updated_at)
+            VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+            ON CONFLICT (id) 
+            DO UPDATE SET 
+                image_data = EXCLUDED.image_data,
+                mime_type = EXCLUDED.mime_type,
+                source_url = COALESCE(NULLIF(EXCLUDED.source_url, ''), game_images.source_url),
+                updated_at = CURRENT_TIMESTAMP
+        `, [id, dataUri, mimeType, sourceUrl || '']);
+
+        return true;
+    } catch (err) {
+        console.error('Error saving image to DB:', err.message);
+        return false;
+    }
+}
+
+// تحميل وحفظ الصورة في قاعدة البيانات
+async function downloadAndStoreImage(gameId, url) {
+    if (!url || url.includes('placehold.co')) return null;
+
+    try {
+        const dl = await downloadImageBuffer(url);
+        if (dl && dl.buffer) {
+            await saveGameImageToDB(gameId, dl.buffer, dl.contentType, url);
+            return `/api/games/image/${gameId}`;
+        }
+    } catch (e) {
+        console.warn('downloadAndStoreImage error:', e.message);
+    }
+    return url;
+}
+
+// ==================== محرك التصنيف التلقائي الذكي للألعاب ====================
+function autoClassifyGame(name = '', nameAr = '', description = '', genres = []) {
+    const textToAnalyze = `${name} ${nameAr} ${description} ${(Array.isArray(genres) ? genres.join(' ') : '')}`.toLowerCase();
+    const cleanName = (name || '').toLowerCase();
+    const cleanNameAr = (nameAr || '').toLowerCase();
+
+    // 1. Horror (رعب)
+    const horrorTitles = [
+        'resident evil', 'silent hill', 'outlast', 'evil within', 'dead space', 'alien isolation',
+        'until dawn', 'little nightmares', 'five nights at freddy', 'alan wake', 'amnesia',
+        'layers of fear', 'fatal frame', 'callisto protocol', 'slender', 'blair witch', 'visage',
+        'dark pictures', 'man of medan', 'little hope', 'house of ashes', 'devil in me', 'the quarry',
+        'dying light', 'tormented souls', 'daymare', 'siren', 'fnaf', 'dead by daylight', 'soma',
+        'fear', 'alone in the dark', 'phasmophobia', 'left 4 dead', 'world war z', 'dead island', 'evil dead'
+    ];
+    const isHorrorTitle = horrorTitles.some(t => cleanName.includes(t) || cleanNameAr.includes(t));
+    const horrorKeywords = ['horror', 'رعب', 'survival horror', 'psychological horror', 'مخيف', 'زومبي', 'اشباح', 'شر مقيم'];
+    if (isHorrorTitle || horrorKeywords.some(k => textToAnalyze.includes(k))) {
+        return 'Horror';
+    }
+
+    // 2. CoOp (ألعاب زوجية / لاعبين اثنين)
+    const coopTitles = [
+        'it takes two', 'a way out', 'overcooked', 'unravel two', 'unravel 2', 'cuphead', 'lego',
+        'moving out', 'rayman legends', 'sackboy', 'littlebigplanet', 'broforce', 'trine',
+        'lovers in a dangerous', 'knack', 'castle crashers', 'guacamelee', 'human fall flat',
+        'gang beasts', 'haven', 'portal 2', 'streets of rage', 'don\'t starve together',
+        'teenage mutant ninja turtles', 'tmnt', 'brothers: a tale of two sons', 'it takes 2'
+    ];
+    const isCoopTitle = coopTitles.some(t => cleanName.includes(t) || cleanNameAr.includes(t));
+    const coopKeywords = ['co-op', 'coop', 'couch co-op', 'split screen', 'split-screen', 'زوجية', 'شخصين', 'لشخصين', 'تعاونية', 'العاب زوجية'];
+    if (isCoopTitle || coopKeywords.some(k => textToAnalyze.includes(k))) {
+        return 'CoOp';
+    }
+
+    // 3. Fighting (قتال)
+    const fightingTitles = [
+        'mortal kombat', 'tekken', 'street fighter', 'injustice', 'dragon ball', 'guilty gear',
+        'king of fighters', 'soulcalibur', 'ufc', 'wwe 2k', 'naruto', 'dead or alive',
+        'marvel vs capcom', 'jump force', 'demon slayer', 'my hero', 'brawlhalla', 'super smash',
+        'sifu', 'kof', 'samurai shodown', 'virtua fighter', 'melty blood', 'blazblue', 'fatal fury',
+        'boxing', 'fight night', 'creed'
+    ];
+    const isFightingTitle = fightingTitles.some(t => cleanName.includes(t) || cleanNameAr.includes(t));
+    const fightingKeywords = ['fighting', 'قتال', 'قتالية', 'ملاكمة', 'مصارعة', 'brawler', 'beat \'em up', '1v1', 'martial arts'];
+    if (isFightingTitle || fightingKeywords.some(k => textToAnalyze.includes(k))) {
+        return 'Fighting';
+    }
+
+    // 4. Sports (رياضة)
+    const sportsTitles = [
+        'fifa', 'ea sports fc', 'fc 24', 'fc 25', 'fc 26', 'efootball', 'pes ', 'pro evolution soccer',
+        'nba 2k', 'madden nfl', 'mlb the show', 'nhl', 'pga tour', 'tony hawk', 'skate',
+        'wwe', 'topspin', 'tennis', 'riders republic', 'steep', 'rocket league', 'captain tsubasa',
+        'golf', 'football manager', 'handball', 'volleyball', 'badminton'
+    ];
+    const isSportsTitle = sportsTitles.some(t => cleanName.includes(t) || cleanNameAr.includes(t) || cleanName.startsWith('pes'));
+    const sportsKeywords = ['sports', 'رياضة', 'كرة قدم', 'كرة سلة', 'كورة', 'soccer', 'football', 'basketball', 'baseball'];
+    if (isSportsTitle || sportsKeywords.some(k => textToAnalyze.includes(k))) {
+        return 'Sports';
+    }
+
+    // 5. Racing (سباق)
+    const racingTitles = [
+        'need for speed', 'nfs', 'gran turismo', 'forza', 'the crew', 'dirt', 'f1 2', 'f1 20',
+        'grid', 'burnout', 'assetto corsa', 'wrc', 'project cars', 'asphalt', 'hot wheels',
+        'crash team racing', 'ctr', 'sonic racing', 'kart', 'wreckfest', 'ride ', 'motogp',
+        'monster energy supercross', 'snowrunner', 'mudrunner', 'flatout', 'fast & furious', 'fast and furious'
+    ];
+    const isRacingTitle = racingTitles.some(t => cleanName.includes(t) || cleanNameAr.includes(t));
+    const racingKeywords = ['racing', 'سباق', 'سيارات', 'دراجات', 'driving', 'automotive', 'motorsport'];
+    if (isRacingTitle || racingKeywords.some(k => textToAnalyze.includes(k))) {
+        return 'Racing';
+    }
+
+    // 6. Shooter (تصويب)
+    const shooterTitles = [
+        'call of duty', 'cod', 'battlefield', 'doom', 'wolfenstein', 'rainbow six', 'sniper elite',
+        'sniper ghost warrior', 'metro exodus', 'metro 2033', 'metro last light', 'titanfall',
+        'halo', 'payday', 'borderlands', 'bioshock', 'ghost recon', 'the division', 'overwatch',
+        'apex legends', 'destiny', 'far cry', 'spec ops', 'killzone', 'resistance', 'crysis',
+        'stalker', 'battlefront', 'quake', 'medal of honor'
+    ];
+    const isShooterTitle = shooterTitles.some(t => cleanName.includes(t) || cleanNameAr.includes(t));
+    const shooterKeywords = ['shooter', 'fps', 'تصويب', 'قنص', 'اطلاق نار', 'first-person shooter', 'third-person shooter', 'tactical shooter'];
+    if (isShooterTitle || shooterKeywords.some(k => textToAnalyze.includes(k))) {
+        return 'Shooter';
+    }
+
+    // 7. RPG (آر بي جي)
+    const rpgTitles = [
+        'elden ring', 'the witcher', 'witcher', 'dark souls', 'bloodborne', 'demon\'s souls',
+        'skyrim', 'elder scrolls', 'fallout', 'final fantasy', 'cyberpunk 2077', 'monster hunter',
+        'dragon age', 'persona', 'tales of', 'kingdom hearts', 'hogwarts legacy', 'nioh',
+        'lies of p', 'sekiro', 'baldur\'s gate', 'diablo', 'mass effect', 'dragon\'s dogma',
+        'shin megami tensei', 'star ocean', 'nier:automata', 'nier automata', 'nier replicant',
+        'genshin', 'ys viii', 'ys ix', 'dragon quest'
+    ];
+    const isRpgTitle = rpgTitles.some(t => cleanName.includes(t) || cleanNameAr.includes(t));
+    const rpgKeywords = ['rpg', 'role-playing', 'آر بي جي', 'ار بي جي', 'تقمص ادوار', 'action rpg', 'jrpg'];
+    if (isRpgTitle || rpgKeywords.some(k => textToAnalyze.includes(k))) {
+        return 'RPG';
+    }
+
+    // 8. Adventure (مغامرة)
+    const adventureTitles = [
+        'red dead redemption', 'rdr', 'uncharted', 'tomb raider', 'horizon zero dawn',
+        'horizon forbidden west', 'ghost of tsushima', 'death stranding', 'the last of us',
+        'days gone', 'assassin\'s creed', 'assassins creed', 'life is strange', 'detroit: become human',
+        'heavy rain', 'beyond: two souls', 'stray', 'journey', 'shadow of the colossus',
+        'the last guardian', 'star wars jedi', 'batman arkham', 'spider-man', 'spiderman',
+        'guardians of the galaxy', 'marvel\'s avengers', 'god of war', 'prince of persia'
+    ];
+    const isAdvTitle = adventureTitles.some(t => cleanName.includes(t) || cleanNameAr.includes(t));
+    const adventureKeywords = ['adventure', 'مغامرة', 'مغامرات', 'open-world', 'open world', 'narrative', 'story-rich'];
+    if (isAdvTitle || adventureKeywords.some(k => textToAnalyze.includes(k))) {
+        return 'Adventure';
+    }
+
+    // 9. Action (أكشن - الافتراضي)
+    return 'Action';
+}
+
+// ==================== دوال مساعدة إضافية ====================
+
+// تحميل صورة وحفظها محلياً (كاش احتياطي)
 function downloadImage(url, filename) {
     return new Promise((resolve) => {
         if (!url || url.includes('placehold.co')) {
@@ -37,7 +242,8 @@ function downloadImage(url, filename) {
             }
         };
 
-        const req = https.get(url, options, (resp) => {
+        const protocol = url.startsWith('https') ? https : http;
+        const req = protocol.get(url, options, (resp) => {
             if (resp.statusCode >= 300 && resp.statusCode < 400 && resp.headers.location) {
                 return downloadImage(resp.headers.location, filename).then(resolve);
             }
@@ -647,43 +853,38 @@ router.get('/', async (req, res) => {
     }
 });
 
-// Add new game (Protected) - مع جلب صورة تلقائي
+// Add new game (Protected) - مع جلب صورة وتصنيف تلقائي وتخزين دائم في DB
 router.post('/', verifyToken, async (req, res) => {
     try {
         const { name, nameAr, price, size, category, image, description, trailer, notes, hardDrive, isNew } = req.body;
 
-        if (!name || !price || !size || !category) {
-            return res.status(400).json({ error: 'يرجى ملء كافة الحقول الأساسية (الاسم، السعر، الحجم، التصنيف)' });
+        if (!name || !price || !size) {
+            return res.status(400).json({ error: 'يرجى ملء كافة الحقول الأساسية (الاسم، السعر، الحجم)' });
         }
 
         const id = 'ps4_' + Date.now().toString().slice(-6);
         const finalNameAr = (nameAr && nameAr.trim() !== '') ? nameAr.trim() : name.trim();
         const finalIsNew = (isNew !== undefined) ? Boolean(isNew) : true;
 
-        let finalImage = image ? image.trim() : '';
         let finalDescription = description || '';
         let finalTrailer = trailer || '';
+        let finalImage = image ? image.trim() : '';
+
+        // تحديد التصنيف تلقائياً إذا لم يتم اختياره أو تم تركه افتراضي
+        let finalCategory = category;
+        if (!finalCategory || finalCategory === 'auto' || finalCategory === 'default') {
+            finalCategory = autoClassifyGame(name.trim(), finalNameAr, finalDescription);
+        }
 
         if (!finalImage) {
             try {
-                const searchResult = await searchGameImage(name, category);
+                const searchResult = await searchGameImage(name, finalCategory);
                 if (searchResult && searchResult.image) {
                     finalImage = searchResult.image;
                     if (!finalDescription) finalDescription = searchResult.description || '';
                     if (!finalTrailer) finalTrailer = searchResult.trailer || '';
-
-                    // حفظ الصورة محلياً (إذا مو placeholder)
-                    if (finalImage && !finalImage.includes('placehold.co')) {
-                        try {
-                            const safeName = name.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 50);
-                            const filename = `${safeName}_${id}.jpg`;
-                            const localPath = await downloadImage(finalImage, filename);
-                            if (localPath) {
-                                finalImage = localPath;
-                            }
-                        } catch (imgErr) {
-                            console.warn('Image download warning (using web url):', imgErr.message);
-                        }
+                    if (!category || category === 'auto' || category === 'default') {
+                        finalCategory = searchResult.category || finalCategory;
                     }
                 }
             } catch (searchErr) {
@@ -691,17 +892,29 @@ router.post('/', verifyToken, async (req, res) => {
             }
         }
 
+        // حفظ الصورة بشكل دائم في قاعدة البيانات (PostgreSQL)
+        if (finalImage && !finalImage.includes('placehold.co')) {
+            try {
+                const dbImagePath = await downloadAndStoreImage(id, finalImage);
+                if (dbImagePath) {
+                    finalImage = dbImagePath;
+                }
+            } catch (imgErr) {
+                console.warn('Image DB store warning:', imgErr.message);
+            }
+        }
+
         if (!finalImage) {
-            finalImage = getPlaceholderImage(name, category);
+            finalImage = getPlaceholderImage(name, finalCategory);
         }
 
         await pool.query(
             'INSERT INTO games (id, name, name_ar, price, size, category, image, description, trailer, notes, hard_drive, is_new) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)',
-            [id, name.trim(), finalNameAr, price, size, category, finalImage, finalDescription, finalTrailer, notes || '', hardDrive || '1', finalIsNew]
+            [id, name.trim(), finalNameAr, price, size, finalCategory, finalImage, finalDescription, finalTrailer, notes || '', hardDrive || '1', finalIsNew]
         );
 
         res.json({
-            id, name: name.trim(), nameAr: finalNameAr, price, size, category,
+            id, name: name.trim(), nameAr: finalNameAr, price, size, category: finalCategory,
             image: finalImage, description: finalDescription,
             trailer: finalTrailer, notes, hardDrive: hardDrive || '1',
             isNew: finalIsNew
@@ -719,13 +932,29 @@ router.put('/:id', verifyToken, async (req, res) => {
         const { name, nameAr, price, size, category, image, description, trailer, notes, hardDrive, isNew } = req.body;
 
         const isNewParam = (isNew !== undefined) ? Boolean(isNew) : null;
+        let finalImage = image;
+
+        // إذا الصورة تم تحديثها برابط خارجي أو base64، احفظها في DB
+        if (finalImage && (finalImage.startsWith('http://') || finalImage.startsWith('https://') || finalImage.startsWith('data:image/'))) {
+            try {
+                const dbImagePath = await downloadAndStoreImage(id, finalImage);
+                if (dbImagePath) finalImage = dbImagePath;
+            } catch (e) {
+                console.warn('Save updated image to DB error:', e.message);
+            }
+        }
+
+        let finalCat = category;
+        if (!finalCat || finalCat === 'auto') {
+            finalCat = autoClassifyGame(name, nameAr, description);
+        }
 
         await pool.query(
             'UPDATE games SET name = $1, name_ar = $2, price = $3, size = $4, category = $5, image = $6, description = $7, trailer = $8, notes = $9, hard_drive = $10, is_new = COALESCE($11, is_new) WHERE id = $12',
-            [name, nameAr, price, size, category, image, description || '', trailer || '', notes || '', hardDrive || '1', isNewParam, id]
+            [name, nameAr, price, size, finalCat, finalImage, description || '', trailer || '', notes || '', hardDrive || '1', isNewParam, id]
         );
 
-        res.json({ id, name, nameAr, price, size, category, image, description, trailer, notes, hardDrive: hardDrive || '1', isNew: isNewParam });
+        res.json({ id, name, nameAr, price, size, category: finalCat, image: finalImage, description, trailer, notes, hardDrive: hardDrive || '1', isNew: isNewParam });
     } catch (error) {
         console.error('Error updating game:', error);
         res.status(500).json({ error: 'Database error' });
@@ -754,17 +983,16 @@ router.delete('/:id', verifyToken, async (req, res) => {
     try {
         const { id } = req.params;
 
+        // Delete from game_images table in DB
+        await pool.query('DELETE FROM game_images WHERE id = $1', [id]).catch(() => {});
+
         const gameResult = await pool.query('SELECT image FROM games WHERE id = $1', [id]);
         if (gameResult.rows.length > 0) {
             const imagePath = gameResult.rows[0].image;
             if (imagePath && imagePath.startsWith('/images/games/')) {
                 const fullPath = path.join(__dirname, '..', 'public', imagePath);
                 if (fs.existsSync(fullPath)) {
-                    try {
-                        fs.unlinkSync(fullPath);
-                    } catch (fsErr) {
-                        console.error('Error deleting image file:', fsErr);
-                    }
+                    try { fs.unlinkSync(fullPath); } catch (e) {}
                 }
             }
         }
@@ -777,28 +1005,237 @@ router.delete('/:id', verifyToken, async (req, res) => {
     }
 });
 
-// Search game details (Protected) - للأدمن
+// Search game details with Auto-Classification (Protected) - للأدمن
 router.get('/search-image', verifyToken, async (req, res) => {
     try {
         const query = req.query.q;
         const category = req.query.category || 'default';
-        if (!query) return res.json({ image: null, description: null, trailer: null });
+        if (!query) return res.json({ image: null, description: null, trailer: null, category: null });
 
-        console.log(`\n🔍 البحث عن لعبة: "${query}"`);
+        console.log(`\n🔍 البحث والتصنيف التلقائي للعبة: "${query}"`);
 
         const result = await searchGameImage(query, category);
 
-        console.log(`✅ النتيجة: source=${result.source}, image=${!!result.image}`);
+        // Auto-classify game category based on query, description and genres
+        const detectedCategory = autoClassifyGame(query, '', result.description || '', result.genres || []);
+        result.category = detectedCategory;
+        result.detectedCategory = detectedCategory;
+
+        console.log(`✅ النتيجة: source=${result.source}, image=${!!result.image}, category=${detectedCategory}`);
 
         res.json(result);
-
     } catch (error) {
         console.error('Search image API error:', error);
-        res.json({ image: null, description: null, trailer: null });
+        res.json({ image: null, description: null, trailer: null, category: null });
     }
 });
 
-// Refresh game image (Protected)
+// ==================== مسار جلب الصور مباشرة من قاعدة البيانات (PostgreSQL) ====================
+// هذا المسار يقدم الصورة مباشرة من قاعدة البيانات مع ترويسة كاش طويلة الأمد
+router.get('/image/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // 1. فحص الصورة في جدول game_images بقاعدة البيانات
+        const imgRes = await pool.query('SELECT image_data, mime_type, source_url FROM game_images WHERE id = $1', [id]);
+        if (imgRes.rows.length > 0 && imgRes.rows[0].image_data) {
+            const row = imgRes.rows[0];
+            const matches = row.image_data.match(/^data:image\/(\w+);base64,(.+)$/);
+            if (matches) {
+                const mime = row.mime_type || `image/${matches[1] === 'jpg' ? 'jpeg' : matches[1]}`;
+                const buf = Buffer.from(matches[2], 'base64');
+                res.set('Content-Type', mime);
+                res.set('Cache-Control', 'public, max-age=31536000, immutable');
+                return res.send(buf);
+            }
+        }
+
+        // 2. إذا لم تكن مخزنة في game_images بعد، فحص جدول games
+        const gameRes = await pool.query('SELECT image, name, category FROM games WHERE id = $1', [id]);
+        if (gameRes.rows.length > 0) {
+            const game = gameRes.rows[0];
+            if (game.image) {
+                // إذا كان رابط خارجي، تحويل المتصفح إليه وتخزينه في الخلفية في DB
+                if (game.image.startsWith('http://') || game.image.startsWith('https://')) {
+                    downloadAndStoreImage(id, game.image).catch(() => {});
+                    return res.redirect(game.image);
+                }
+
+                // إذا كان ملفاً محلياً، قراءته وحفظه في DB للأبد
+                if (game.image.startsWith('/images/games/')) {
+                    const fullPath = path.join(__dirname, '..', 'public', game.image);
+                    if (fs.existsSync(fullPath)) {
+                        const buf = fs.readFileSync(fullPath);
+                        await saveGameImageToDB(id, buf, 'image/jpeg', '');
+                        res.set('Content-Type', 'image/jpeg');
+                        res.set('Cache-Control', 'public, max-age=31536000, immutable');
+                        return res.send(buf);
+                    }
+                }
+            }
+        }
+
+        // 3. صورة بديلة افتراضية
+        res.redirect('https://placehold.co/400x600/110e20/7c3aed?text=🎮');
+    } catch (err) {
+        console.error('Serve DB image error:', err.message);
+        res.redirect('https://placehold.co/400x600/110e20/7c3aed?text=🎮');
+    }
+});
+
+// ==================== رفع صورة مخصصة وحفظها في قاعدة البيانات ====================
+router.post('/upload-custom-image', verifyToken, async (req, res) => {
+    try {
+        const { imageData, fileName } = req.body;
+
+        if (!imageData || !imageData.startsWith('data:image/')) {
+            return res.status(400).json({ error: 'بيانات الصورة غير صالحة' });
+        }
+
+        const matches = imageData.match(/^data:image\/(\w+);base64,(.+)$/);
+        if (!matches) {
+            return res.status(400).json({ error: 'تنسيق الصورة غير مدعوم' });
+        }
+
+        const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
+        const mimeType = `image/${ext === 'jpg' ? 'jpeg' : ext}`;
+        const buffer = Buffer.from(matches[2], 'base64');
+
+        if (buffer.length > 5 * 1024 * 1024) {
+            return res.status(400).json({ error: 'حجم الصورة كبير جداً! الحد الأقصى 5MB' });
+        }
+
+        const safeName = (fileName || 'custom').replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 40);
+        const uniqueId = `img_${safeName}_${Date.now().toString().slice(-8)}`;
+
+        // حفظ الصورة مباشرة في جدول game_images بقاعدة البيانات (حفظ أبدي)
+        await saveGameImageToDB(uniqueId, imageData, mimeType, '');
+
+        // حفظ كاش محلي أيضاً
+        try {
+            const filename = `${uniqueId}.${ext}`;
+            const filePath = path.join(IMAGES_DIR, filename);
+            fs.writeFileSync(filePath, buffer);
+        } catch (fsErr) {}
+
+        const permanentDbUrl = `/api/games/image/${uniqueId}`;
+        console.log(`💾 تم حفظ الصورة المخصصة في قاعدة البيانات بنجاح: ${permanentDbUrl}`);
+
+        res.json({
+            success: true,
+            path: permanentDbUrl,
+            id: uniqueId
+        });
+    } catch (error) {
+        console.error('Upload custom image error:', error);
+        res.status(500).json({ error: 'حدث خطأ أثناء حفظ الصورة في قاعدة البيانات' });
+    }
+});
+
+// ==================== تصنيف جميع الألعاب تلقائياً (Bulk Auto-Categorize) ====================
+router.post('/auto-categorize-all', verifyToken, async (req, res) => {
+    try {
+        const result = await pool.query('SELECT id, name, name_ar, description, category FROM games');
+        const games = result.rows;
+        let updatedCount = 0;
+        const categoryCounts = {};
+
+        for (const game of games) {
+            const detected = autoClassifyGame(game.name, game.name_ar, game.description);
+            categoryCounts[detected] = (categoryCounts[detected] || 0) + 1;
+
+            if (detected !== game.category) {
+                await pool.query('UPDATE games SET category = $1 WHERE id = $2', [detected, game.id]);
+                updatedCount++;
+            }
+        }
+
+        res.json({
+            success: true,
+            message: `تم تصنيف جميع الألعاب بنجاح! تم تحديث تصنيف ${updatedCount} لعبة.`,
+            updatedCount,
+            totalGames: games.length,
+            stats: categoryCounts
+        });
+    } catch (error) {
+        console.error('Auto categorize all error:', error);
+        res.status(500).json({ error: 'حدث خطأ أثناء تصنيف الألعاب تلقائياً' });
+    }
+});
+
+// ==================== مزامنة وحفظ جميع الصور في قاعدة البيانات (DB Image Sync) ====================
+// هذا المسار يقوم بتحميل وحفظ جميع صور الألعاب داخل جدول game_images حتى لا تضيع أبداً مع أي تعديل
+router.post('/sync-images-to-db', verifyToken, async (req, res) => {
+    try {
+        const result = await pool.query('SELECT id, name, name_ar, category, image FROM games');
+        const games = result.rows;
+        let storedCount = 0;
+        let fetchedCount = 0;
+
+        for (const game of games) {
+            // فحص هل اللعبة مخزنة مسبقاً في جدول الصور
+            const check = await pool.query('SELECT id FROM game_images WHERE id = $1', [game.id]);
+            if (check.rows.length > 0) {
+                if (game.image !== `/api/games/image/${game.id}`) {
+                    await pool.query('UPDATE games SET image = $1 WHERE id = $2', [`/api/games/image/${game.id}`, game.id]);
+                }
+                storedCount++;
+                continue;
+            }
+
+            let saved = false;
+
+            // 1. إذا كان رابطاً خارجياً
+            if (game.image && (game.image.startsWith('http://') || game.image.startsWith('https://')) && !game.image.includes('placehold.co')) {
+                const dl = await downloadImageBuffer(game.image);
+                if (dl && dl.buffer) {
+                    await saveGameImageToDB(game.id, dl.buffer, dl.contentType, game.image);
+                    await pool.query('UPDATE games SET image = $1 WHERE id = $2', [`/api/games/image/${game.id}`, game.id]);
+                    saved = true;
+                    storedCount++;
+                }
+            }
+
+            // 2. إذا كان ملفاً محلياً موجوداً على القرص
+            if (!saved && game.image && game.image.startsWith('/images/games/')) {
+                const fullPath = path.join(__dirname, '..', 'public', game.image);
+                if (fs.existsSync(fullPath)) {
+                    const buf = fs.readFileSync(fullPath);
+                    await saveGameImageToDB(game.id, buf, 'image/jpeg', '');
+                    await pool.query('UPDATE games SET image = $1 WHERE id = $2', [`/api/games/image/${game.id}`, game.id]);
+                    saved = true;
+                    storedCount++;
+                }
+            }
+
+            // 3. إذا لم تكن الصورة متوفرة، ابحث عنها تلقائياً واحفظها في DB مباشرة
+            if (!saved) {
+                const searchRes = await searchGameImage(game.name || game.name_ar, game.category);
+                if (searchRes && searchRes.image && !searchRes.image.includes('placehold.co')) {
+                    const dl = await downloadImageBuffer(searchRes.image);
+                    if (dl && dl.buffer) {
+                        await saveGameImageToDB(game.id, dl.buffer, dl.contentType, searchRes.image);
+                        await pool.query('UPDATE games SET image = $1 WHERE id = $2', [`/api/games/image/${game.id}`, game.id]);
+                        fetchedCount++;
+                    }
+                }
+            }
+        }
+
+        res.json({
+            success: true,
+            message: `تم حفظ وتأمين صور ${storedCount + fetchedCount} لعبة داخل قاعدة البيانات بنجاح! الصور الآن محفوظة للأبد.`,
+            storedCount,
+            fetchedCount,
+            total: games.length
+        });
+    } catch (error) {
+        console.error('Sync images to DB error:', error);
+        res.status(500).json({ error: 'حدث خطأ أثناء مزامنة وحفظ الصور في قاعدة البيانات' });
+    }
+});
+
+// Refresh game image (Protected) - مع حفظ دائم في DB
 router.post('/refresh-image/:id', verifyToken, async (req, res) => {
     try {
         const { id } = req.params;
@@ -815,18 +1252,16 @@ router.post('/refresh-image/:id', verifyToken, async (req, res) => {
 
         let finalImage = searchResult.image;
         if (finalImage && !finalImage.includes('placehold.co')) {
-            const safeName = game.name.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 50);
-            const ext = 'jpg';
-            const filename = `${safeName}_${id}_refresh.${ext}`;
-            const localPath = await downloadImage(finalImage, filename);
-            if (localPath) {
-                finalImage = localPath;
-            }
+            const dbImagePath = await downloadAndStoreImage(id, finalImage);
+            if (dbImagePath) finalImage = dbImagePath;
         }
 
+        // التصنيف التلقائي
+        const detectedCategory = autoClassifyGame(game.name, game.name_ar, searchResult.description || '', searchResult.genres || []);
+
         await pool.query(
-            'UPDATE games SET image = $1, description = $2, trailer = $3 WHERE id = $4',
-            [finalImage, searchResult.description, searchResult.trailer, id]
+            'UPDATE games SET image = $1, description = $2, trailer = $3, category = $4 WHERE id = $5',
+            [finalImage, searchResult.description, searchResult.trailer, detectedCategory, id]
         );
 
         res.json({
@@ -834,6 +1269,7 @@ router.post('/refresh-image/:id', verifyToken, async (req, res) => {
             image: finalImage,
             description: searchResult.description,
             trailer: searchResult.trailer,
+            category: detectedCategory,
             source: searchResult.source
         });
     } catch (error) {
@@ -853,18 +1289,19 @@ router.get('/needs-refresh', verifyToken, async (req, res) => {
         const needsRefresh = [];
 
         for (const game of games) {
-            let isLocalMissing = false;
-            if (game.image && game.image.startsWith('/images/games/')) {
-                const fullPath = path.join(__dirname, '..', 'public', game.image);
-                if (!fs.existsSync(fullPath)) {
-                    isLocalMissing = true;
+            let isMissing = false;
+            if (type === 'images') {
+                if (!game.image || game.image.includes('placehold.co')) {
+                    isMissing = true;
+                } else if (game.image.startsWith('/images/games/')) {
+                    const fullPath = path.join(__dirname, '..', 'public', game.image);
+                    if (!fs.existsSync(fullPath)) isMissing = true;
                 }
             }
 
-            const needsImage = type === 'images' && (!game.image || game.image.includes('placehold.co') || isLocalMissing);
             const needsTrailer = type === 'trailers' && !game.trailer;
 
-            if (needsImage || needsTrailer) {
+            if (isMissing || needsTrailer) {
                 needsRefresh.push({
                     id: game.id,
                     name: game.name || game.name_ar || 'لعبة مجهولة'
@@ -898,74 +1335,26 @@ router.post('/refresh-specific/:id', verifyToken, async (req, res) => {
         let finalTrailer = game.trailer;
 
         if (type === 'images' && searchResult.image && !searchResult.image.includes('placehold.co')) {
-            const safeName = (game.name || 'game').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 50);
-            const filename = `${safeName}_${id}.jpg`;
-            const localPath = await downloadImage(searchResult.image, filename);
-            if (localPath) {
-                finalImage = localPath;
-            }
+            const dbImagePath = await downloadAndStoreImage(id, searchResult.image);
+            if (dbImagePath) finalImage = dbImagePath;
         }
 
         if (type === 'trailers' && searchResult.trailer) {
             finalTrailer = searchResult.trailer;
         }
 
+        // التصنيف التلقائي
+        const detectedCategory = autoClassifyGame(game.name, game.name_ar, searchResult.description || '', searchResult.genres || []);
+
         await pool.query(
-            'UPDATE games SET image = $1, trailer = $2 WHERE id = $3',
-            [finalImage, finalTrailer || '', id]
+            'UPDATE games SET image = $1, trailer = $2, category = $3 WHERE id = $4',
+            [finalImage, finalTrailer || '', detectedCategory, id]
         );
 
-        res.json({ success: true });
+        res.json({ success: true, category: detectedCategory });
     } catch (error) {
         console.error(`Refresh specific error for ID ${req.params.id}:`, error);
         res.status(500).json({ error: 'Failed to refresh game' });
-    }
-});
-
-// ==================== رفع صورة مخصصة (base64) ====================
-router.post('/upload-custom-image', verifyToken, async (req, res) => {
-    try {
-        const { imageData, fileName } = req.body;
-
-        if (!imageData || !imageData.startsWith('data:image/')) {
-            return res.status(400).json({ error: 'بيانات الصورة غير صالحة' });
-        }
-
-        // استخراج نوع الصورة والبيانات
-        const matches = imageData.match(/^data:image\/(\w+);base64,(.+)$/);
-        if (!matches) {
-            return res.status(400).json({ error: 'تنسيق الصورة غير مدعوم' });
-        }
-
-        const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
-        const base64Data = matches[2];
-        const buffer = Buffer.from(base64Data, 'base64');
-
-        // التحقق من حجم الملف (أقصى 5MB)
-        if (buffer.length > 5 * 1024 * 1024) {
-            return res.status(400).json({ error: 'حجم الصورة كبير جداً! الحد الأقصى 5MB' });
-        }
-
-        // إنشاء اسم ملف فريد
-        const safeName = (fileName || 'custom').replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 40);
-        const uniqueId = Date.now().toString().slice(-8);
-        const filename = `custom_${safeName}_${uniqueId}.${ext}`;
-        const filePath = path.join(IMAGES_DIR, filename);
-
-        // حفظ الملف
-        fs.writeFileSync(filePath, buffer);
-
-        const imagePath = `/images/games/${filename}`;
-        console.log(`📸 تم رفع صورة مخصصة: ${filename}`);
-
-        res.json({
-            success: true,
-            path: imagePath,
-            filename
-        });
-    } catch (error) {
-        console.error('Upload custom image error:', error);
-        res.status(500).json({ error: 'حدث خطأ أثناء رفع الصورة' });
     }
 });
 

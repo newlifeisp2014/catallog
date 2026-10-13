@@ -250,6 +250,12 @@
             <button class="btn btn-outline btn-sm" onclick="bulkRefreshImages('trailers')" title="تحديث الفيديوهات (التريلرات) لجميع الألعاب" style="white-space:nowrap;">
               <i class="fas fa-video"></i> جلب الفيديوهات
             </button>
+            <button class="btn btn-outline btn-sm" onclick="autoCategorizeAllGames()" title="تصنيف جميع ألعاب المتجر تلقائياً حسب نوعها (رعب، قتال، رياضة، سباق، ألخ)" style="white-space:nowrap; border-color:var(--clr-primary); color:var(--clr-primary-light);">
+              <i class="fas fa-wand-magic-sparkles"></i> تصنيف الألعاب تلقائياً
+            </button>
+            <button class="btn btn-outline btn-sm" onclick="syncImagesToDB()" title="تأمين وحفظ جميع صور الألعاب داخل قاعدة البيانات (PostgreSQL) بشكل دائمي حتى لا تختفي أبداً" style="white-space:nowrap; border-color:var(--clr-gold); color:var(--clr-gold);">
+              <i class="fas fa-database"></i> حفظ الصور بقاعدة البيانات (دائمي)
+            </button>
             <div class="admin-search">
               <i class="fas fa-search admin-search__icon"></i>
               <input type="search" id="adminSearchInput" placeholder="ابحث عن لعبة..." oninput="renderGames()">
@@ -307,12 +313,12 @@
                   <i class="fas fa-wand-magic-sparkles"></i> جلب تلقائي (صورة وشرح)
                 </button>
               </div>
-              <input type="text" id="gameName" class="form-input" placeholder="مثال: God of War" required onblur="if(!document.getElementById('gameImage').value) fetchGameDetailsOnline()">
+              <input type="text" id="gameName" class="form-input" placeholder="مثال: God of War" required onblur="if(!document.getElementById('gameImage').value) fetchGameDetailsOnline()" oninput="handleGameNameInput(this.value)">
             </div>
 
             <div class="form-group form-group--span2">
               <label for="gameNameAr">الاسم بالعربي</label>
-              <input type="text" id="gameNameAr" class="form-input" placeholder="مثال: جود اوف وور">
+              <input type="text" id="gameNameAr" class="form-input" placeholder="مثال: جود اوف وور" oninput="handleGameNameInput(this.value)">
             </div>
 
             <div class="form-group">
@@ -325,7 +331,12 @@
             </div>
 
             <div class="form-group">
-              <label for="gameCategory">التصنيف *</label>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.35rem;">
+                <label for="gameCategory" style="margin-bottom:0;">التصنيف *</label>
+                <span id="autoCategoryBadge" style="display:none;font-size:0.75rem;color:var(--clr-gold);background:rgba(245,158,11,0.15);padding:2px 8px;border-radius:12px;border:1px solid rgba(245,158,11,0.3);">
+                  <i class="fas fa-magic"></i> تم التحديد تلقائياً
+                </span>
+              </div>
               <select id="gameCategory" class="form-input" required>
                 <option value="CoOp">ألعاب زوجية (Co-Op)</option>
                 <option value="Action">أكشن</option>
