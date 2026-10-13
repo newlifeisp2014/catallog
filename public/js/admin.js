@@ -1248,14 +1248,14 @@ async function refreshGameImage(id) {
   const game = allGames.find(g => g.id === id);
   if (!game) return;
 
-  showToast(`جاري تحديث صورة وشرح "${game.nameAr || game.name}"...`, 'info');
+  showToast(`جاري جلب غلاف وتفاصيل "${game.nameAr || game.name}" من PSPKG...`, 'info');
 
   try {
     const res = await fetch(`/api/games/refresh-image/${id}`, { method: 'POST' });
     const data = await res.json();
 
     if (res.ok && data.success) {
-      showToast('تم تحديث صورة وشرح اللعبة بنجاح! ✨');
+      showToast('تم جلب وتحديث غلاف اللعبة من PSPKG بنجاح! ✨');
       loadData();
     } else {
       showToast(data.error || 'فشل تحديث الصورة', 'error');
@@ -1266,8 +1266,8 @@ async function refreshGameImage(id) {
 }
 
 async function bulkRefreshImages(type) {
-  const typeText = type === 'images' ? 'الصور' : 'الفيديوهات (التريلرات)';
-  if (!confirm(`هل أنت متأكد من رغبتك في فحص وتحديث ${typeText} الناقصة لجميع الألعاب؟ قد تستغرق هذه العملية عدة دقائق.`)) return;
+  const typeText = type === 'images' ? 'الصور (من موقع PSPKG)' : 'الفيديوهات (التريلرات)';
+  if (!confirm(`هل أنت متأكد من رغبتك في فحص وجلب ${typeText} لجميع الألعاب؟ سيتم الاعتماد على PSPKG كمصدر رئيسي للأغلفة.`)) return;
   
   const btn = document.querySelector(`button[onclick="bulkRefreshImages('${type}')"]`);
   const originalHtml = btn ? btn.innerHTML : '';

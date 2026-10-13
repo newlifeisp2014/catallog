@@ -563,6 +563,40 @@ async function searchYouTube(query) {
 }
 
 // ==================== 0. PSPKG Search (PlayStation Games Center - pspkg.com) ====================
+// قاموس تعريب أسماء الألعاب الشائعة للبحث الذكي في PSPKG
+const ARABIC_GAME_TRANSLATIONS = {
+    'قراند': 'Grand Theft Auto',
+    'فيفا': 'FIFA',
+    'بيس': 'eFootball PES',
+    'جود اوف وور': 'God of War',
+    'سبايدر مان': 'Spider-Man',
+    'ريزيدنت ايفل': 'Resident Evil',
+    'تيكن': 'Tekken',
+    'مورتال كومبات': 'Mortal Kombat',
+    'ذا لاست اوف اس': 'The Last of Us',
+    'كراش': 'Crash Bandicoot',
+    'انشارتد': 'Uncharted',
+    'رد ديد': 'Red Dead Redemption',
+    'اساسنز كريد': 'Assassin\'s Creed',
+    'اساسن كريد': 'Assassin\'s Creed',
+    'كول اوف ديوتي': 'Call of Duty',
+    'سايلنت هيل': 'Silent Hill',
+    'اوت لاست': 'Outlast',
+    'نيد فور سبيد': 'Need for Speed',
+    'باتمان': 'Batman',
+    'هورايزن': 'Horizon',
+    'ذا ويتشر': 'The Witcher',
+    'الدر رينق': 'Elden Ring',
+    'ايلدن رينج': 'Elden Ring',
+    'سايبر بانك': 'Cyberpunk',
+    'ماين كرافت': 'Minecraft',
+    'تومب رايدر': 'Tomb Raider',
+    'ديفل ماي كراي': 'Devil May Cry',
+    'دارك سولز': 'Dark Souls',
+    'بلودبورن': 'Bloodborne',
+    'سيكيرو': 'Sekiro'
+};
+
 async function searchPSPKG(query) {
     if (!query || !query.trim()) return null;
 
@@ -594,64 +628,97 @@ async function searchPSPKG(query) {
             }
         }
 
-        // 2. البحث التلقائي في قسم PS4 على pspkg.com
-        const searchUrl = `https://pspkg.com/ps4/?search=${encodeURIComponent(cleanQ)}`;
-        const res = await fetch(searchUrl, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.9,ar;q=0.8'
-            }
-        });
+        // تحضير عبارات البحث (الاسم الأصلي، الاسم المنظف، والاسم المترجم إذا كان بالعربي)
+        const searchTerms = [cleanQ];
+        const lowerQ = cleanQ.toLowerCase();
 
-        if (!res.ok) return null;
-        const html = await res.text();
-
-        // استخراج بطاقات الألعاب والصور من pspkg.com
-        const imgRegex = /<img[^>]+src="(https:\/\/img\.pspkg\.com\/ps4\/image\/[^"]+)"[^>]*alt="([^"]*)"/gi;
-        let match;
-        const candidates = [];
-
-        while ((match = imgRegex.exec(html)) !== null) {
-            const imgUrl = match[1];
-            const altTitle = (match[2] || '').trim();
-            candidates.push({ title: altTitle, image: imgUrl });
-        }
-
-        if (candidates.length === 0) {
-            const genRegex = /src="(https:\/\/img\.pspkg\.com\/ps4\/image\/[^"]+\.(?:webp|jpg|jpeg|png)(?:\?[^"]*)?)"/gi;
-            while ((match = genRegex.exec(html)) !== null) {
-                candidates.push({ title: '', image: match[1] });
+        for (const [arWord, enWord] of Object.entries(ARABIC_GAME_TRANSLATIONS)) {
+            if (lowerQ.includes(arWord)) {
+                const translated = cleanQ.replace(new RegExp(arWord, 'gi'), enWord).trim();
+                if (!searchTerms.includes(translated)) searchTerms.push(translated);
+                if (!searchTerms.includes(enWord)) searchTerms.push(enWord);
             }
         }
 
-        if (candidates.length === 0) {
-            console.log(`🎮 PSPKG: "${cleanQ}" -> ❌ لم يتم العثور على غلاف`);
-            return null;
-        }
+        // محاولة البحث عبر عبارات البحث والأقسام المختلفة
+        for (const term of searchTerms) {
+            const urlsToTry = [
+                `https://pspkg.com/ps4/?search=${encodeURIComponent(term)}`,
+                `https://pspkg.com/arabic-games/?search=${encodeURIComponent(term)}`
+            ];
 
-        // اختيار أفضل تطابق مع اسم اللعبة المطلوب
-        let bestMatch = candidates[0];
-        let bestScore = 0;
+            for (const searchUrl of urlsToTry) {
+                try {
+                    const res = await fetch(searchUrl, {
+                        headers: {
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36',
+                            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                            'Accept-Language': 'en-US,en;q=0.9,ar;q=0.8'
+                        }
+                    });
 
-        for (const cand of candidates) {
-            if (cand.title) {
-                const score = nameSimilarity(cleanQ, cand.title);
-                if (score > bestScore) {
-                    bestScore = score;
-                    bestMatch = cand;
+                    if (!res.ok) continue;
+                    const html = await res.text();
+
+                    const candidates = [];
+
+                    // أ. استخراج مباشر عبر خصائص data-title و data-img الرسمية من موقع PSPKG
+                    const cardRegex = /<a[^>]*class="[^"]*hm-card[^"]*"[^>]*data-title="([^"]+)"[^>]*data-img="([^"]+)"/gi;
+                    let cMatch;
+                    while ((cMatch = cardRegex.exec(html)) !== null) {
+                        candidates.push({ title: cMatch[1].trim(), image: cMatch[2].trim() });
+                    }
+
+                    // ب. استخراج عبر وسوم img مع alt
+                    if (candidates.length === 0) {
+                        const imgRegex = /<img[^>]+src="(https:\/\/img\.pspkg\.com\/ps4\/image\/[^"]+)"[^>]*alt="([^"]*)"/gi;
+                        let iMatch;
+                        while ((iMatch = imgRegex.exec(html)) !== null) {
+                            candidates.push({ title: (iMatch[2] || '').trim(), image: iMatch[1].trim() });
+                        }
+                    }
+
+                    // ج. استخراج عام لأي غلاف من img.pspkg.com
+                    if (candidates.length === 0) {
+                        const genRegex = /src="(https:\/\/img\.pspkg\.com\/ps4\/image\/[^"]+\.(?:webp|jpg|jpeg|png)(?:\?[^"]*)?)"/gi;
+                        let gMatch;
+                        while ((gMatch = genRegex.exec(html)) !== null) {
+                            candidates.push({ title: '', image: gMatch[1].trim() });
+                        }
+                    }
+
+                    if (candidates.length > 0) {
+                        // اختيار أفضل تطابق مع اسم اللعبة
+                        let bestMatch = candidates[0];
+                        let bestScore = 0;
+
+                        for (const cand of candidates) {
+                            if (cand.title) {
+                                const score = nameSimilarity(term, cand.title);
+                                if (score > bestScore) {
+                                    bestScore = score;
+                                    bestMatch = cand;
+                                }
+                            }
+                        }
+
+                        console.log(`🎮 PSPKG (المصدر الرئيسي): "${term}" -> "${bestMatch.title || 'Game'}" (${bestScore.toFixed(2)}) -> ✅ ${bestMatch.image}`);
+                        return {
+                            image: bestMatch.image,
+                            description: '',
+                            trailer: '',
+                            source: 'pspkg',
+                            gameName: bestMatch.title || term
+                        };
+                    }
+                } catch (netErr) {
+                    // تجربة الرابط التالي
                 }
             }
         }
 
-        console.log(`🎮 PSPKG: "${cleanQ}" -> "${bestMatch.title || 'Game'}" (${bestScore.toFixed(2)}) -> ✅ ${bestMatch.image}`);
-        return {
-            image: bestMatch.image,
-            description: '',
-            trailer: '',
-            source: 'pspkg',
-            gameName: bestMatch.title || cleanQ
-        };
+        console.log(`🎮 PSPKG: "${cleanQ}" -> لم يتم العثور على غلاف في PSPKG`);
+        return null;
     } catch (e) {
         console.error('PSPKG error:', e.message);
         return null;
@@ -796,70 +863,84 @@ async function searchGameImage(query, category = 'default') {
     const cleanedQuery = cleanGameName(query);
     console.log(`🧹 الاسم بعد التنظيف: "${cleanedQuery}"`);
 
-    // 0. جرب موقع PSPKG أولاً (أغلفة بلايستيشن 4 أصلية 100%)
+    // 1. المصدر الرئيسي الأول: موقع PSPKG (أغلفة بلايستيشن 4 أصلية 100%)
     let pspkg = await searchPSPKG(query);
     if (!pspkg || !pspkg.image) {
         pspkg = await searchPSPKG(cleanedQuery);
     }
+
     if (pspkg && pspkg.image) {
-        result = { ...result, ...pspkg };
-        console.log(`✅ PSPKG Cover: ${pspkg.image}`);
+        result.image = pspkg.image;
+        result.source = 'pspkg';
+        result.gameName = pspkg.gameName || query;
+        if (pspkg.description) result.description = pspkg.description;
+        console.log(`👑 تم اختيار غلاف PSPKG كمصدر رئيسي مؤكد: ${pspkg.image}`);
     }
 
-    // 1. جرب SuperPSX ثانياً
+    // 2. إذا لم نجد في PSPKG، ننتقل للمصادر الاحتياطية
     if (!result.image) {
+        // SuperPSX
         let superpsx = await searchSuperPSX(query);
-        if (!superpsx || !superpsx.image) {
-            superpsx = await searchSuperPSX(cleanedQuery);
-        }
-
+        if (!superpsx || !superpsx.image) superpsx = await searchSuperPSX(cleanedQuery);
         if (superpsx && superpsx.image) {
             result = { ...result, ...superpsx };
-            console.log(`✅ SuperPSX Cover`);
+            console.log(`✅ غلاف احتياطي: SuperPSX`);
         }
     }
 
-    // 1. جرب Steam أولاً
     if (!result.image) {
+        // Steam
         let steam = await searchSteam(cleanedQuery);
-        if (!steam && cleanedQuery !== query) steam = await searchSteam(query); // fallback to original
-
+        if (!steam && cleanedQuery !== query) steam = await searchSteam(query);
         if (steam && steam.image) {
-            result = { ...steam };
-            console.log(`✅ Steam Cover: ${steam.gameName}`);
+            result = { ...result, ...steam };
+            console.log(`✅ غلاف احتياطي: Steam`);
         }
     }
 
-    // 2. إذا Steam فشل، جرب RAWG
     if (!result.image) {
+        // RAWG
         let rawg = await searchRAWG(cleanedQuery);
         if (!rawg && cleanedQuery !== query) rawg = await searchRAWG(query);
-
         if (rawg && rawg.image) {
             result = { ...rawg };
-            console.log(`✅ RAWG Cover: ${rawg.gameName}`);
+            console.log(`✅ غلاف احتياطي: RAWG`);
         }
     }
 
-    // 3. جرب أغلفة Wikipedia الرسمية
     if (!result.image) {
+        // أغلفة Wikipedia
         let wiki = await searchPS4Cover(cleanedQuery);
         if (!wiki && cleanedQuery !== query) wiki = await searchPS4Cover(query);
-
         if (wiki && wiki.image) {
             result.image = wiki.image;
             result.source = 'wikipedia';
-            console.log(`✅ Wikipedia Cover`);
+            console.log(`✅ غلاف احتياطي: Wikipedia`);
         }
     }
 
-    // 4. جرب Unsplash للأغلفة
     if (!result.image) {
+        // Unsplash
         const unsplash = await searchUnsplash(`${cleanedQuery} PS4 cover boxart`);
         if (unsplash && unsplash.image) {
             result = { ...unsplash };
-            console.log(`✅ Unsplash Cover`);
+            console.log(`✅ غلاف احتياطي: Unsplash`);
         }
+    }
+
+    // إذا الصورة مأخوذة من PSPKG ولكن لا يوجد شرح أو تريلر، نجلبهما تكميلياً دون تغيير صورة PSPKG!
+    if (result.image && (!result.description || !result.trailer)) {
+        try {
+            if (!result.description) {
+                const steamDesc = await searchSteam(cleanedQuery || query);
+                if (steamDesc && steamDesc.description) {
+                    result.description = steamDesc.description;
+                } else {
+                    const rawgDesc = await searchRAWG(cleanedQuery || query);
+                    if (rawgDesc && rawgDesc.description) result.description = rawgDesc.description;
+                }
+            }
+        } catch (e) {}
     }
 
     // 5. يوتيوب (البحث عن التريلر والصورة المصغرة)
