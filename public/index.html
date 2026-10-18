@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>NewLife — مكتبة الألعاب</title>
-  <meta name="description" content="تصفح واطلب أحدث ألعاب البلايستيشن بضغطة زر — NewLife">
-  <meta name="theme-color" content="#7c3aed">
+  <title>NewLife — كتالوج الألعاب</title>
+  <meta name="description" content="تصفح واطلب أحدث ألعاب البلايستيشن بجودة عالية وتثبيت سريع — NewLife">
+  <meta name="theme-color" content="#07050f">
 
   <!-- PWA & App Icons -->
   <link rel="manifest" href="/manifest.json">
@@ -25,31 +25,66 @@
   <link rel="stylesheet" href="/css/variables.css">
   <link rel="stylesheet" href="/css/main.css">
 </head>
-<body>
+<body class="gaming-catalog-body">
 
-  <!-- ─── Navigation ─── -->
-  <nav class="nl-nav" role="navigation" aria-label="التنقل الرئيسي">
-    <div class="nl-nav__brand" onclick="window.location.href='/'">
+  <!-- ─── Top Navigation Bar ─── -->
+  <header class="nl-nav" role="navigation" aria-label="التنقل الرئيسي">
+    <!-- Store Brand -->
+    <div class="nl-nav__brand" onclick="window.location.href='/'" title="الصفحة الرئيسية">
       <div class="nl-nav__brand-icon" aria-hidden="true">
         <i class="fas fa-gamepad"></i>
       </div>
-      NewLife
+      <div class="nl-nav__brand-info">
+        <span class="brand-title">NewLife</span>
+        <span class="brand-subtitle">كتالوج الألعاب</span>
+      </div>
     </div>
+
+    <!-- Centered Search Bar (Like in Reference) -->
+    <div class="nav-search-bar" role="search">
+      <i class="fas fa-search nav-search-bar__icon" aria-hidden="true"></i>
+      <input
+        type="search"
+        class="nav-search-bar__input"
+        id="searchInput"
+        placeholder="ابحث عن لعبة، مطوّر، أو نوع..."
+        autocomplete="off"
+        aria-label="البحث عن ألعاب"
+      >
+      <button class="nav-search-bar__clear" id="searchClearBtn" onclick="clearSearch()" aria-label="مسح البحث" style="display:none;">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+    <!-- Right/Left Actions (WhatsApp + Orders + Cart) -->
     <div class="nl-nav__actions">
-      <button class="btn btn-ghost btn-sm" onclick="window.location.href='/orders.html'" id="myOrdersBtn">
+      <!-- WhatsApp Quick Contact Pill -->
+      <a href="https://wa.me/9647838059979" target="_blank" rel="noopener" class="nav-whatsapp-pill" id="navWhatsAppPill" title="تواصل عبر الواتساب">
+        <i class="fab fa-whatsapp"></i>
+        <span class="whatsapp-text">07838059979</span>
+      </a>
+
+      <!-- My Orders Button -->
+      <button class="btn btn-ghost btn-sm nav-orders-btn" onclick="window.location.href='/orders.html'" id="myOrdersBtn" title="متابعة طلباتي">
         <i class="fas fa-receipt"></i>
         <span>طلباتي</span>
       </button>
+
+      <!-- Cart Button in Header -->
+      <button class="btn btn-primary btn-sm nav-cart-btn" onclick="openCart()" id="navCartBtn" aria-label="سلة المشتريات">
+        <i class="fas fa-shopping-basket"></i>
+        <span class="nav-cart-badge" id="navCartBadge">0</span>
+      </button>
     </div>
-  </nav>
+  </header>
 
   <!-- ─── PWA Install Banner ─── -->
   <div id="pwaInstallBanner" style="display:none; position:fixed; bottom:0; left:0; right:0; z-index:9999; padding:0.75rem 1rem; background:linear-gradient(135deg,#1a0a3e,#0f0a28); border-top:1px solid rgba(124,58,237,0.4); backdrop-filter:blur(12px); box-shadow:0 -4px 24px rgba(124,58,237,0.25);">
     <div style="display:flex; align-items:center; gap:0.75rem; max-width:600px; margin:0 auto;">
       <img src="/icons/icon-192x192.png" style="width:46px;height:46px;border-radius:12px;flex-shrink:0;" alt="NewLife">
       <div style="flex:1; min-width:0;">
-        <div style="font-weight:800;font-size:0.95rem;color:#fff;">NewLife PS4 Catalog</div>
-        <div style="font-size:0.78rem;color:rgba(255,255,255,0.55);">ثبّت التطبيق على شاشتك الرئيسية</div>
+        <div style="font-weight:800;font-size:0.95rem;color:#fff;">NewLife Games Catalog</div>
+        <div style="font-size:0.78rem;color:rgba(255,255,255,0.55);">ثبّت التطبيق على شاشتك الرئيسية للوصول السريع</div>
       </div>
       <button onclick="triggerPWAInstall()" style="background:linear-gradient(135deg,#7c3aed,#f59e0b);color:#fff;border:none;border-radius:10px;padding:0.55rem 1rem;font-weight:700;font-size:0.88rem;cursor:pointer;white-space:nowrap;flex-shrink:0;">
         <i class="fas fa-download" style="margin-left:0.3rem;"></i> تثبيت
@@ -60,75 +95,150 @@
     </div>
   </div>
 
-  <!-- ─── Hero ─── -->
-  <header class="hero container" role="banner">
-    <div class="hero__eyebrow animate-fade-up" style="animation-delay:0.05s">
-      <i class="fas fa-bolt"></i>
-      بلايستيشن 4 | أحدث الإصدارات
-    </div>
-    <h1 class="hero__title animate-fade-up" style="animation-delay:0.1s">
-      اكتشف <span class="highlight">عالمك الجديد</span>
-    </h1>
-    <p class="hero__subtitle animate-fade-up" style="animation-delay:0.15s">
-      تصفح مئات الألعاب واطلب مباشرة من المحل بأفضل الأسعار
-    </p>
+  <!-- ─── Cinematic Featured Hero Showcase ─── -->
+  <section class="hero-showcase" id="heroShowcase" aria-label="أبرز الألعاب">
+    <!-- Dynamic Cinematic Backdrop -->
+    <div class="hero-showcase__backdrop" id="heroBackdrop"></div>
+    <div class="hero-showcase__overlay"></div>
 
-    <!-- Search -->
-    <div class="search-bar animate-fade-up" style="animation-delay:0.2s" role="search">
-      <i class="fas fa-search search-bar__icon" aria-hidden="true"></i>
-      <input
-        type="search"
-        class="search-bar__input"
-        id="searchInput"
-        placeholder="ابحث عن لعبة... (مثال: فيفا، قراند)"
-        autocomplete="off"
-        aria-label="البحث عن ألعاب"
-      >
-    </div>
+    <div class="container hero-showcase__container">
+      <!-- Main Featured Info -->
+      <div class="hero-showcase__info">
+        <!-- Recently Added / Spotlight Badge -->
+        <div class="hero-showcase__tag" id="heroTag">
+          <span class="hero-tag__dash"></span>
+          <span id="heroTagText">أضيف حديثاً</span>
+        </div>
 
-    <!-- Category Filters -->
-    <div class="filter-tabs animate-fade-up" id="filterTabs" style="animation-delay:0.25s" role="group" aria-label="تصفية حسب التصنيف">
-      <button class="filter-tab active" data-cat="all" id="filter-all">الكل</button>
-      <button class="filter-tab filter-tab--new" data-cat="isNew" id="filter-new">
-        <i class="fas fa-fire-flame-curved" style="color:var(--clr-gold);margin-left:4px;"></i> أحدث الإضافات
-      </button>
-      <button class="filter-tab" data-cat="CoOp" id="filter-CoOp">ألعاب زوجية</button>
-      <button class="filter-tab" data-cat="Action" id="filter-Action">أكشن</button>
-      <button class="filter-tab" data-cat="Sports" id="filter-Sports">رياضة</button>
-      <button class="filter-tab" data-cat="Adventure" id="filter-Adventure">مغامرة</button>
-      <button class="filter-tab" data-cat="RPG" id="filter-RPG">آر بي جي</button>
-      <button class="filter-tab" data-cat="Shooter" id="filter-Shooter">تصويب</button>
-      <button class="filter-tab" data-cat="Fighting" id="filter-Fighting">قتال</button>
-      <button class="filter-tab" data-cat="Racing" id="filter-Racing">سباق</button>
-      <button class="filter-tab" data-cat="Horror" id="filter-Horror">رعب</button>
-    </div>
-  </header>
+        <!-- Game Title -->
+        <h1 class="hero-showcase__title" id="heroTitle">جاري تحميل الألعاب...</h1>
+        <div class="hero-showcase__subtitle" id="heroSubtitle"></div>
 
-  <!-- ─── Games Grid ─── -->
-  <main class="container" id="mainContent" role="main">
-    <div class="catalog-toolbar animate-fade-up" style="animation-delay:0.3s">
-      <div class="catalog-toolbar__count" id="gamesCountBadge">
-        <i class="fas fa-gamepad" style="color:var(--clr-primary-light);"></i>
-        <span id="gamesCountText">جاري تحميل الألعاب...</span>
+        <!-- Badges Row (Size, Year, Rating, Genres) -->
+        <div class="hero-showcase__meta" id="heroMeta">
+          <span class="hero-meta-badge" id="heroSizeBadge">
+            <i class="fas fa-database"></i>
+            <span id="heroSize">-- GB</span>
+          </span>
+          <span class="hero-meta-badge" id="heroYearBadge">
+            <i class="fas fa-calendar-alt"></i>
+            <span id="heroYear">2026</span>
+          </span>
+          <span class="hero-meta-badge hero-meta-badge--rating" id="heroRatingBadge">
+            <i class="fas fa-star"></i>
+            <span id="heroRating">4.8 من 5</span>
+          </span>
+          <div class="hero-genre-tags" id="heroGenreTags">
+            <!-- Dynamic Genre Tags -->
+          </div>
+        </div>
+
+        <!-- Game Description Excerpt -->
+        <p class="hero-showcase__desc" id="heroDesc">
+          استكشف أروع وأحدث ألعاب البلايستيشن بجودة فائقة وتثبيت مباشر وسريع مع باقة متنوعة بأفضل الأسعار.
+        </p>
+
+        <!-- CTA Action Buttons -->
+        <div class="hero-showcase__actions">
+          <button class="hero-btn hero-btn--trailer" id="heroTrailerBtn" onclick="openHeroTrailer()">
+            <i class="fas fa-play"></i>
+            <span>شاهد المقطع</span>
+          </button>
+          <button class="hero-btn hero-btn--details" id="heroDetailsBtn" onclick="openHeroDetails()">
+            <i class="fas fa-circle-info"></i>
+            <span>التفاصيل</span>
+          </button>
+          <button class="hero-btn hero-btn--cart" id="heroCartBtn" onclick="addHeroToCart()">
+            <i class="fas fa-cart-plus"></i>
+            <span id="heroCartBtnText">أضف للسلة</span>
+          </button>
+        </div>
       </div>
-      <div class="catalog-toolbar__sort">
-        <label for="sortSelect" class="catalog-toolbar__label">
-          <i class="fas fa-arrow-down-a-z" style="color:var(--clr-gold);"></i>
-          <span>الترتيب:</span>
+
+      <!-- Interactive Carousel Thumbnails (Bottom Corner) -->
+      <div class="hero-showcase__slider-wrap">
+        <div class="hero-thumbnails" id="heroThumbnails" role="tablist" aria-label="ألعاب مميزة">
+          <!-- 5 mini cover thumbnails rendered dynamically via JS -->
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Catalog Section: Title, Platform Tabs & Category Pills ─── -->
+  <section class="catalog-section container" id="catalogSection">
+    <!-- Header Bar with Main Title, Platform Tabs, and Sort Dropdown -->
+    <div class="catalog-header-bar">
+      <!-- Section Title & Counter -->
+      <div class="catalog-title-group">
+        <div class="catalog-title-with-bar">
+          <h2 class="catalog-main-title">جميع الألعاب</h2>
+          <span class="catalog-title-line"></span>
+        </div>
+        <span class="catalog-count-badge" id="gamesCountBadge">جاري التحميل...</span>
+      </div>
+
+      <!-- Platform Filter Tabs (الكل / PS4 / PS5) -->
+      <div class="platform-tabs" id="platformTabs" role="group" aria-label="تصفية حسب المنصة">
+        <button class="platform-tab active" data-platform="all" onclick="handlePlatformChange('all', this)">الكل</button>
+        <button class="platform-tab" data-platform="PS4" onclick="handlePlatformChange('PS4', this)">PS4</button>
+        <button class="platform-tab" data-platform="PS5" onclick="handlePlatformChange('PS5', this)">PS5</button>
+      </div>
+
+      <!-- Sort Dropdown -->
+      <div class="catalog-sort-group">
+        <label for="sortSelect" class="catalog-sort-label">
+          <i class="fas fa-sort-amount-down"></i>
+          <span>ترتيب حسب:</span>
         </label>
         <select id="sortSelect" class="catalog-sort-select" onchange="handleSortChange(this.value)" aria-label="ترتيب الألعاب">
-          <option value="alpha" selected>أبجدياً (أ - ي)</option>
-          <option value="newest">الأحدث أولاً (جديد 🔥)</option>
+          <option value="newest" selected>الأحدث إضافة 🔥</option>
+          <option value="alpha">أبجدياً (أ - ي)</option>
           <option value="priceAsc">السعر: من الأقل للأعلى</option>
           <option value="priceDesc">السعر: من الأعلى للأقل</option>
         </select>
       </div>
     </div>
 
+    <!-- Horizontal Scrollable Category Pills with Live Counts -->
+    <div class="categories-nav-wrapper">
+      <button class="cat-nav-btn cat-nav-btn--prev" id="catNavPrev" onclick="scrollCategories(-240)" aria-label="تمرير لليمين">
+        <i class="fas fa-chevron-right"></i>
+      </button>
+
+      <div class="categories-scroll-track" id="filterTabs" role="group" aria-label="تصفية حسب التصنيف">
+        <!-- Rendered dynamically via JS with real game counts! -->
+      </div>
+
+      <button class="cat-nav-btn cat-nav-btn--next" id="catNavNext" onclick="scrollCategories(240)" aria-label="تمرير لليسار">
+        <i class="fas fa-chevron-left"></i>
+      </button>
+    </div>
+  </section>
+
+  <!-- ─── Games Grid ─── -->
+  <main class="container" id="mainContent" role="main">
     <div class="games-grid" id="gamesGrid" role="list" aria-label="قائمة الألعاب">
       <!-- Games rendered via JS -->
     </div>
   </main>
+
+  <!-- ─── Video Trailer Modal (Cinema Popup) ─── -->
+  <div class="trailer-modal-overlay" id="trailerModalOverlay" role="dialog" aria-modal="true" aria-label="العرض الترويجي" onclick="handleTrailerOverlayClick(event)">
+    <div class="trailer-modal-dialog">
+      <div class="trailer-modal-header">
+        <div class="trailer-modal-title-group">
+          <i class="fas fa-play-circle" style="color:var(--clr-gold);"></i>
+          <h3 class="trailer-modal-title" id="trailerModalTitle">العرض الترويجي للعبة</h3>
+        </div>
+        <button class="trailer-modal-close" onclick="closeTrailerModal()" aria-label="إغلاق المقطع">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="trailer-modal-body" id="trailerModalBody">
+        <!-- Video iframe or HTML5 video tag injected dynamically -->
+      </div>
+    </div>
+  </div>
 
   <!-- ─── Floating Cart Button ─── -->
   <div class="float-cart" aria-live="polite">
@@ -200,8 +310,6 @@
 
   <!-- ─── Toast Container ─── -->
   <div class="toast-container" id="toastContainer" aria-live="assertive"></div>
-
-
 
   <!-- ─── Scripts ─── -->
   <script src="/js/main.js"></script>
