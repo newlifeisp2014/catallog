@@ -94,11 +94,11 @@ function handleSortChange(newSort) {
 // ── Fetch Games ───────────────────────────────────────────────
 async function fetchGames() {
   if (gamesGrid) {
-    gamesGrid.innerHTML = `
-      <div class="loader" style="grid-column:1/-1; text-align:center; padding:3rem 0;">
-        <div class="spinner"></div>
-        <p style="color:var(--clr-text-muted); margin-top:1rem; font-weight:600;">جاري تحميل أحدث الألعاب...</p>
-      </div>`;
+    gamesGrid.innerHTML = Array(12).fill(0).map(() => `
+      <div class="game-card-skeleton" style="aspect-ratio:2/3; position:relative; min-height:280px;">
+        <div class="skeleton-shimmer" style="width:100%; height:100%; border-radius:var(--radius-lg);"></div>
+      </div>
+    `).join('');
   }
 
   try {
@@ -546,6 +546,7 @@ function buildGameCard(game, inCart, index) {
         src="${game.image || ''}"
         alt="${game.nameAr || game.name}"
         loading="lazy"
+        onload="this.classList.add('loaded')"
         onerror="this.src='https://placehold.co/400x600/110e20/7c3aed?text=🎮'"
       >
       ${isNew ? `

@@ -1003,11 +1003,37 @@ body.gaming-catalog-body {
   background: var(--clr-surface-2);
 }
 
+/* ─── Skeleton Loading Shimmer ─── */
+.game-card-skeleton {
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border-light);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(90deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.09) 50%, rgba(255,255,255,0.03) 100%);
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.5s infinite;
+}
+
+@keyframes skeletonShimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
 .game-card__img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform var(--dur-slow) var(--ease-smooth);
+  transition: transform var(--dur-slow) var(--ease-smooth), opacity 0.35s ease;
+  opacity: 0.85;
+}
+
+.game-card__img.loaded {
+  opacity: 1;
 }
 
 .game-card:hover .game-card__img { transform: scale(1.06); }

@@ -212,6 +212,7 @@ function updateDashboardStats() {
 
   if (currentTab === 'dashboard') {
     renderDashboardCharts();
+    renderTopGames();
   }
 }
 
@@ -383,6 +384,9 @@ function orderRow(o, showActions) {
         <button class="btn btn-sm" style="background:#25D366;color:white;border:none;padding:0.35rem 0.6rem;border-radius:var(--radius-sm);" onclick="sendWhatsAppNotification('${id}')" title="إرسال رسالة واتساب للزبون">
           <i class="fab fa-whatsapp"></i>
         </button>
+        <button class="btn btn-sm" style="background:rgba(245,158,11,0.15);color:var(--clr-gold);border:1px solid rgba(245,158,11,0.3);padding:0.35rem 0.6rem;border-radius:var(--radius-sm);" onclick="printOrderReceipt('${id}')" title="طباعة وصل الاستلام (فاتورة)">
+          <i class="fas fa-print"></i>
+        </button>
       </div>
     </td>` : ''}
   </tr>`;
@@ -506,11 +510,41 @@ function viewOrder(id) {
           return { ...g, size: g.size || (cg && cg.size) || '' };
         });
         const totalSize = formatTotalSize(gamesWithSize);
+        const totalGB = gamesWithSize.reduce((s, g) => s + parseSizeToGB(g.size || ''), 0);
+
+        let capacityAnalysisHtml = '';
+        if (totalGB > 0) {
+          let targetDrive = 500;
+          let usableSpace = 465;
+          if (totalGB > 465 && totalGB <= 930) { targetDrive = 1000; usableSpace = 930; }
+          else if (totalGB > 930) { targetDrive = 2000; usableSpace = 1860; }
+
+          const fillPct = Math.min(100, Math.round((totalGB / usableSpace) * 100));
+          const remainingGB = Math.max(0, usableSpace - Math.round(totalGB));
+          const isOver = totalGB > usableSpace;
+
+          capacityAnalysisHtml = `
+            <div style="background:rgba(20,184,166,0.08);border:1px solid rgba(20,184,166,0.25);border-radius:var(--radius-md);padding:0.75rem 1rem;margin-top:0.6rem;">
+              <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.85rem;margin-bottom:0.4rem;">
+                <span><i class="fas fa-microchip" style="color:var(--clr-teal);margin-left:4px;"></i><strong>تحليل السعة التقديري:</strong> هارد ${targetDrive >= 1000 ? (targetDrive/1000) + 'TB' : targetDrive + 'GB'}</span>
+                <strong style="color:${isOver ? 'var(--clr-danger)' : 'var(--clr-teal)'};">${fillPct}% ممتلئ</strong>
+              </div>
+              <div style="width:100%;height:7px;background:rgba(255,255,255,0.08);border-radius:4px;overflow:hidden;">
+                <div style="width:${fillPct}%;height:100%;background:${isOver ? 'var(--clr-danger)' : 'linear-gradient(90deg, #14b8a6, #f59e0b)'};"></div>
+              </div>
+              <div style="font-size:0.78rem;color:var(--clr-text-muted);margin-top:0.35rem;display:flex;justify-content:space-between;">
+                <span>إجمالي الحجم: ${totalGB.toFixed(1)} GB</span>
+                <span>${isOver ? '⚠️ يتجاوز السعة الموصى بها!' : `المساحة المتبقية تقريباً: ~${remainingGB} GB`}</span>
+              </div>
+            </div>`;
+        }
+
         return totalSize ? `
           <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.2);border-radius:var(--radius-md);padding:0.55rem 0.85rem;margin-top:0.6rem;">
             <span style="font-size:0.88rem;color:var(--clr-text-muted);"><i class="fas fa-hdd" style="margin-left:6px;color:var(--clr-primary-light);"></i>إجمالي حجم الألعاب</span>
             <strong style="font-size:1rem;color:var(--clr-primary-light);">${totalSize}</strong>
-          </div>` : '';
+          </div>
+          ${capacityAnalysisHtml}` : '';
       })()}
     </div>
 
@@ -547,6 +581,9 @@ function viewOrder(id) {
   actions += `
     <button class="btn" style="background:#25D366;color:white;font-weight:700;flex:1;min-width:45%;" onclick="sendWhatsAppNotification('${orderId}')">
       <i class="fab fa-whatsapp"></i> إرسال واتساب
+    </button>
+    <button class="btn btn-gold" style="flex:1;min-width:45%;font-weight:700;" onclick="printOrderReceipt('${orderId}')" title="طباعة وصل استلام حراري للزبون">
+      <i class="fas fa-print"></i> طباعة الوصل (فاتورة)
     </button>`;
 
   if (status === 'pending') {
@@ -851,6 +888,212 @@ function sendWhatsAppNotification(orderId) {
 
   const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
   window.open(url, '_blank');
+}
+
+// ── Top Games Analytics ───────────────────────────────────────
+async function renderTopGames() {
+  const container = document.getElementById('topGamesList');
+  if (!container) return;
+
+  try {
+    const res = await fetch('/api/stats');
+    if (!res.ok) return;
+    const statsData = await res.json();
+    const topGames = statsData.topGames || [];
+
+    if (topGames.length === 0) {
+      container.innerHTML = `<div style="grid-column:1/-1; color:var(--clr-text-muted); font-size:0.88rem; padding:1.5rem; text-align:center;">لا توجد طلبات كافية بعد لإظهار إحصائيات الألعاب الأكثر طلباً.</div>`;
+      return;
+    }
+
+    const maxCount = Math.max(...topGames.map(g => g.count), 1);
+    const medals = ['🥇', '🥈', '🥉'];
+
+    container.innerHTML = topGames.map((g, idx) => {
+      const pct = Math.round((g.count / maxCount) * 100);
+      const medal = medals[idx] || `#${idx + 1}`;
+      return `
+        <div style="background:var(--clr-surface-2); border:1px solid var(--clr-border-light); border-radius:var(--radius-md); padding:0.85rem 1rem; display:flex; flex-direction:column; gap:0.4rem;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; align-items:center; gap:0.5rem; min-width:0;">
+              <span style="font-size:1.1rem; flex-shrink:0;">${medal}</span>
+              <strong style="font-size:0.92rem; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${g.name}">${g.name}</strong>
+            </div>
+            <span style="font-size:0.8rem; font-weight:800; color:var(--clr-gold); background:rgba(245,158,11,0.12); padding:0.2rem 0.55rem; border-radius:var(--radius-full); flex-shrink:0;">${g.count} طلب</span>
+          </div>
+          <div style="width:100%; height:6px; background:rgba(255,255,255,0.06); border-radius:4px; overflow:hidden; margin-top:2px;">
+            <div style="width:${pct}%; height:100%; background:linear-gradient(90deg, #f59e0b, #ea580c); border-radius:4px;"></div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch (e) {
+    console.warn('renderTopGames error:', e);
+  }
+}
+
+// ── Print Order Receipt (Thermal POS / Standard) ──────────────
+function printOrderReceipt(orderId) {
+  const o = allOrders.find(x => (x.orderId || x.order_id || x.id) === orderId);
+  if (!o) {
+    showToast('الطلب غير موجود', 'error');
+    return;
+  }
+
+  const customerName = o.customerName || o.customer_name || 'زبون';
+  const customerPhone = o.customerPhone || o.customer_phone || '';
+  const orderDate = new Date(o.createdAt || o.created_at || Date.now()).toLocaleString('ar-IQ', {
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit'
+  });
+  const totalPrice = parseFloat(o.totalPrice || o.total_price || 0);
+  const discount = parseFloat(o.discount || 0);
+  const finalPrice = Math.max(0, totalPrice - discount);
+
+  const gamesWithSize = (o.games || []).map(g => {
+    const cg = allGames.find(ag => ag.id === g.id || ag.name === g.name);
+    return { ...g, size: g.size || (cg && cg.size) || '' };
+  });
+  const totalSize = formatTotalSize(gamesWithSize) || 'غير محدد';
+
+  // QR tracking link
+  const trackingUrl = `${window.location.origin}/orders.html?phone=${encodeURIComponent(customerPhone)}`;
+  const qrImgUrl = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&margin=0&data=${encodeURIComponent(trackingUrl)}`;
+
+  // Construct printable HTML
+  const receiptHtml = `
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>وصل طلب #${orderId} — NewLife</title>
+  <style>
+    @page { size: 80mm auto; margin: 3mm; }
+    body {
+      font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif;
+      margin: 0; padding: 6px;
+      color: #000; background: #fff;
+      font-size: 11px; line-height: 1.4;
+      width: 74mm;
+    }
+    .header { text-align: center; border-bottom: 2px dashed #333; padding-bottom: 8px; margin-bottom: 8px; }
+    .header h2 { margin: 0; font-size: 17px; font-weight: 900; }
+    .header .subtitle { font-size: 11px; margin-top: 2px; }
+    .header .phone { font-size: 13px; font-weight: bold; direction: ltr; display: inline-block; margin-top: 4px; }
+    .info-table { width: 100%; margin-bottom: 8px; font-size: 11px; }
+    .info-table td { padding: 2px 0; }
+    .games-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+    .games-table th { border-bottom: 1px solid #000; text-align: right; padding: 4px 2px; font-size: 10px; }
+    .games-table td { padding: 4px 2px; border-bottom: 1px dotted #ccc; font-size: 10px; }
+    .total-box { border-top: 2px dashed #000; border-bottom: 2px dashed #000; padding: 6px 0; margin-bottom: 10px; }
+    .total-row { display: flex; justify-content: space-between; font-size: 11px; margin: 2px 0; }
+    .total-row.grand { font-size: 14px; font-weight: 900; }
+    .qr-box { text-align: center; margin-top: 6px; }
+    .qr-box img { width: 100px; height: 100px; }
+    .footer-note { text-align: center; font-size: 9px; color: #444; margin-top: 6px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h2>NewLife GAMES</h2>
+    <div class="subtitle">مركز وكتالوج ألعاب البلايستيشن</div>
+    <div class="phone">📞 07732521767</div>
+  </div>
+
+  <table class="info-table">
+    <tr>
+      <td><strong>رقم الوصل:</strong> #${orderId}</td>
+      <td style="text-align:left;">${orderDate}</td>
+    </tr>
+    <tr>
+      <td colspan="2"><strong>الزبون:</strong> ${customerName}</td>
+    </tr>
+    <tr>
+      <td colspan="2"><strong>الهاتف:</strong> ${customerPhone}</td>
+    </tr>
+  </table>
+
+  <table class="games-table">
+    <thead>
+      <tr>
+        <th>اللعبة</th>
+        <th>الهارد</th>
+        <th>الحجم</th>
+        <th style="text-align:left;">السعر</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${(o.games || []).map(g => `
+        <tr>
+          <td><strong>${g.name_ar || g.nameAr || g.name}</strong></td>
+          <td>هارد ${g.hardDrive || '1'}</td>
+          <td>${g.size || ''}</td>
+          <td style="text-align:left;">${Number(g.price || 0).toLocaleString()}</td>
+        </tr>
+      `).join('')}
+    </tbody>
+  </table>
+
+  <div class="total-box">
+    <div class="total-row">
+      <span>عدد الألعاب:</span>
+      <span>${(o.games || []).length} لعبة</span>
+    </div>
+    <div class="total-row">
+      <span>إجمالي الحجم:</span>
+      <span>${totalSize}</span>
+    </div>
+    ${discount > 0 ? `
+      <div class="total-row">
+        <span>المبلغ الأصلي:</span>
+        <span>${totalPrice.toLocaleString()} د.ع</span>
+      </div>
+      <div class="total-row" style="color:green;">
+        <span>الخصم:</span>
+        <span>${discount.toLocaleString()} د.ع</span>
+      </div>
+    ` : ''}
+    <div class="total-row grand">
+      <span>المجموع الكلي:</span>
+      <span>${finalPrice.toLocaleString()} د.ع</span>
+    </div>
+  </div>
+
+  <div class="qr-box">
+    <img src="${qrImgUrl}" alt="QR Tracking">
+    <div style="font-size:9px; font-weight:bold; margin-top:3px;">امسح الباركود لمتابعة حالة تجهيز طلبك</div>
+  </div>
+
+  <div class="footer-note">
+    يرجى إبراز هذا الوصل عند استلام جهازك<br>
+    شكراً لتعاملكم مع NewLife 🎮
+  </div>
+</body>
+</html>
+  `;
+
+  let printIframe = document.getElementById('printReceiptIframe');
+  if (!printIframe) {
+    printIframe = document.createElement('iframe');
+    printIframe.id = 'printReceiptIframe';
+    printIframe.style.position = 'fixed';
+    printIframe.style.right = '0';
+    printIframe.style.bottom = '0';
+    printIframe.style.width = '0';
+    printIframe.style.height = '0';
+    printIframe.style.border = 'none';
+    document.body.appendChild(printIframe);
+  }
+
+  const doc = printIframe.contentWindow.document;
+  doc.open();
+  doc.write(receiptHtml);
+  doc.close();
+
+  setTimeout(() => {
+    printIframe.contentWindow.focus();
+    printIframe.contentWindow.print();
+  }, 450);
 }
 
 // ── Games ─────────────────────────────────────────────────────

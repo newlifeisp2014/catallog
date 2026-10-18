@@ -435,7 +435,14 @@
                 <div class="order-name">${custName}</div>
                 <div class="order-date"><i class="far fa-calendar-alt" style="margin-left:4px;"></i>${dateStr}</div>
               </div>
-              <span class="badge ${s.cls}">${s.label}</span>
+              <div style="display:flex; flex-direction:column; align-items:flex-end; gap:0.4rem;">
+                <span class="badge ${s.cls}">${s.label}</span>
+                ${status !== 'delivered' && status !== 'cancelled' ? `
+                  <button class="btn btn-ghost btn-sm" onclick="toggleOrderNotification('${orderId}', '${custName.replace(/'/g, "\\'")}') " id="notify-btn-${orderId}" title="تفعيل إشعار الجاهزية على المتصفح" style="font-size:0.72rem; color:var(--clr-gold); padding:0.2rem 0.55rem; border-radius:var(--radius-sm); border:1px solid rgba(245,158,11,0.25);">
+                    <i class="fas fa-bell"></i> تنبيه الجاهزية
+                  </button>
+                ` : ''}
+              </div>
             </div>
 
             <div class="order-card__body">
@@ -485,6 +492,8 @@
             </div>
           </div>`;
         }).join('');
+
+        checkTrackedOrdersNotification(orders);
 
       } catch(e) {
         container.innerHTML = `
@@ -725,6 +734,59 @@
       c.appendChild(t);
       requestAnimationFrame(() => { requestAnimationFrame(() => t.classList.add('show')); });
       setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 400); }, 3200);
+    }
+
+    /* ══════════════════════════════════════════
+       Browser Notifications for Orders
+    ══════════════════════════════════════════ */
+    async function toggleOrderNotification(orderId, custName) {
+      if (!('Notification' in window)) {
+        showToast('متصفحك لا يدعم الإشعارات المباشرة', 'error');
+        return;
+      }
+
+      if (Notification.permission !== 'granted') {
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+          showToast('يرجى السماح بالإشعارات من إعدادات المتصفح', 'error');
+          return;
+        }
+      }
+
+      const key = 'nl_tracked_orders';
+      let tracked = JSON.parse(localStorage.getItem(key) || '[]');
+      if (!tracked.includes(orderId)) {
+        tracked.push(orderId);
+        localStorage.setItem(key, JSON.stringify(tracked));
+      }
+
+      const btn = document.getElementById(`notify-btn-${orderId}`);
+      if (btn) {
+        btn.innerHTML = '<i class="fas fa-check"></i> تم التفعيل 🔔';
+        btn.style.color = 'var(--clr-success)';
+      }
+      showToast('تم تفعيل التنبيهات! سنخطرك فور اكتمال طلبك 🎮', 'success');
+    }
+
+    function checkTrackedOrdersNotification(orders) {
+      if (!('Notification' in window) || Notification.permission !== 'granted') return;
+      const key = 'nl_tracked_orders';
+      let tracked = JSON.parse(localStorage.getItem(key) || '[]');
+      if (tracked.length === 0) return;
+
+      orders.forEach(o => {
+        const oId = o.orderId || o.order_id || o.id;
+        if (tracked.includes(oId) && o.status === 'delivered') {
+          const notifiedKey = `nl_notified_${oId}`;
+          if (!localStorage.getItem(notifiedKey)) {
+            localStorage.setItem(notifiedKey, 'true');
+            new Notification('NewLife للألعاب 🎮', {
+              body: `تهانينا! طلبك #${oId} أصبح جاهزاً للاستلام الآن من المحل.`,
+              icon: '/icons/icon-192x192.png'
+            });
+          }
+        }
+      });
     }
 
     /* ══════════════════════════════════════════
