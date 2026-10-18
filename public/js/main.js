@@ -17,7 +17,6 @@ let allGames          = [];
 let cart              = JSON.parse(localStorage.getItem('nl_cart') || '[]');
 let searchQuery       = '';
 let activeCategory    = 'all';
-let activePlatform    = 'all';
 let currentSort       = 'newest';
 let featuredGames     = [];
 let currentHeroIndex  = 0;
@@ -386,43 +385,26 @@ function handleTrailerOverlayClick(e) {
   }
 }
 
-// ── Platform Filter (الكل / PS4 / PS5) ────────────────────────
-function handlePlatformChange(platform, btnEl) {
-  activePlatform = platform;
-  document.querySelectorAll('.platform-tab').forEach(b => b.classList.remove('active'));
-  if (btnEl) btnEl.classList.add('active');
-  renderCategoryPills();
-  renderGames(true);
-}
-
 // ── Dynamic Category Navigation with Live Counts ──────────────
 function renderCategoryPills() {
   if (!filterTabs) return;
 
-  // فحص الألعاب المتاحة حسب المنصة
-  const platformFiltered = allGames.filter(g => {
-    if (activePlatform === 'all') return true;
-    if (activePlatform === 'PS4') return !g.name.includes('(PS5)');
-    if (activePlatform === 'PS5') return g.name.includes('(PS5)') || (g.notes && g.notes.includes('PS5'));
-    return true;
-  });
-
-  const totalCount = platformFiltered.length;
-  const newCount   = platformFiltered.filter(g => g.isNew).length;
+  const totalCount = allGames.length;
+  const newCount   = allGames.filter(g => g.isNew).length;
 
   // الفئات المدعومة
   const categoriesList = [
     { key: 'all', label: 'الكل', count: totalCount },
     { key: 'isNew', label: 'أحدث الإضافات 🔥', count: newCount },
-    { key: 'Action', label: 'حركة وأكشن', count: platformFiltered.filter(g => g.category === 'Action').length },
-    { key: 'Adventure', label: 'مغامرة', count: platformFiltered.filter(g => g.category === 'Adventure').length },
-    { key: 'CoOp', label: 'ألعاب زوجية', count: platformFiltered.filter(g => g.category === 'CoOp').length },
-    { key: 'Shooter', label: 'تصويب', count: platformFiltered.filter(g => g.category === 'Shooter').length },
-    { key: 'RPG', label: 'آر بي جي', count: platformFiltered.filter(g => g.category === 'RPG').length },
-    { key: 'Horror', label: 'رعب', count: platformFiltered.filter(g => g.category === 'Horror').length },
-    { key: 'Fighting', label: 'قتال', count: platformFiltered.filter(g => g.category === 'Fighting').length },
-    { key: 'Racing', label: 'سباق', count: platformFiltered.filter(g => g.category === 'Racing').length },
-    { key: 'Sports', label: 'رياضة', count: platformFiltered.filter(g => g.category === 'Sports').length }
+    { key: 'Action', label: 'حركة وأكشن', count: allGames.filter(g => g.category === 'Action').length },
+    { key: 'Adventure', label: 'مغامرة', count: allGames.filter(g => g.category === 'Adventure').length },
+    { key: 'CoOp', label: 'ألعاب زوجية', count: allGames.filter(g => g.category === 'CoOp').length },
+    { key: 'Shooter', label: 'تصويب', count: allGames.filter(g => g.category === 'Shooter').length },
+    { key: 'RPG', label: 'آر بي جي', count: allGames.filter(g => g.category === 'RPG').length },
+    { key: 'Horror', label: 'رعب', count: allGames.filter(g => g.category === 'Horror').length },
+    { key: 'Fighting', label: 'قتال', count: allGames.filter(g => g.category === 'Fighting').length },
+    { key: 'Racing', label: 'سباق', count: allGames.filter(g => g.category === 'Racing').length },
+    { key: 'Sports', label: 'رياضة', count: allGames.filter(g => g.category === 'Sports').length }
   ];
 
   filterTabs.innerHTML = categoriesList
@@ -471,10 +453,6 @@ function renderGames(resetLimit = true) {
   const q = searchQuery.toLowerCase();
 
   const filtered = allGames.filter(g => {
-    // فلتر المنصة
-    if (activePlatform === 'PS4' && g.name.includes('(PS5)')) return false;
-    if (activePlatform === 'PS5' && !g.name.includes('(PS5)') && !(g.notes && g.notes.includes('PS5'))) return false;
-
     // فلتر البحث
     const matchSearch = !q ||
       g.name.toLowerCase().includes(q) ||
