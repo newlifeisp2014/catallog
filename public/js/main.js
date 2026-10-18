@@ -797,6 +797,7 @@ async function submitOrder(e) {
       name:      g.name,
       name_ar:   g.nameAr || g.name_ar || '',
       price:     g.price,
+      size:      g.size || '',
       hardDrive: g.hardDrive || g.hard_drive || '1'
     })),
     total_price: total

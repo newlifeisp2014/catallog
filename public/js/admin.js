@@ -90,7 +90,7 @@ async function loadData() {
   try {
     const promises = [];
 
-    if (['dashboard', 'games'].includes(currentTab)) {
+    if (allGames.length === 0 || ['dashboard', 'games'].includes(currentTab)) {
       promises.push(
         fetch('/api/games?limit=2000').then(r => r.json()).then(d => {
           allGames = d.data || [];
@@ -933,34 +933,76 @@ async function renderTopGames() {
 }
 
 // ── Print Order Receipt (Thermal POS / Standard) ──────────────
-function printOrderReceipt(orderId) {
-  const o = allOrders.find(x => (x.orderId || x.order_id || x.id) === orderId);
+async function printOrderReceipt(orderId) {
+  let o = allOrders.find(x => (x.orderId || x.order_id || x.id) === orderId);
+  if (!o) {
+    try {
+      const res = await fetch(`/api/orders/${orderId}`);
+      if (res.ok) o = await res.json();
+    } catch {}
+  }
   if (!o) {
     showToast('الطلب غير موجود', 'error');
     return;
   }
 
+  // Ensure allGames is loaded for size and price matching
+  if (!allGames || allGames.length === 0) {
+    try {
+      const gRes = await fetch('/api/games?limit=2000');
+      const gData = await gRes.json();
+      allGames = gData.data || [];
+    } catch (e) {
+      console.warn('Could not load allGames:', e);
+    }
+  }
+
   const customerName = o.customerName || o.customer_name || 'زبون';
   const customerPhone = o.customerPhone || o.customer_phone || '';
-  const orderDate = new Date(o.createdAt || o.created_at || Date.now()).toLocaleString('ar-IQ', {
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit'
+  const customerAddress = o.customerAddress || o.customer_address || '';
+  const orderNotes = o.notes || o.adminNotes || o.admin_notes || '';
+  const rawDate = o.createdAt || o.created_at || o.date;
+  const dateObj = rawDate ? new Date(rawDate) : new Date();
+  const orderDate = !isNaN(dateObj.getTime())
+    ? dateObj.toLocaleString('ar-IQ', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+    : '—';
+
+  const statusKey = o.status || 'pending';
+  const statusLabel = (STATUS_MAP[statusKey] && STATUS_MAP[statusKey].label) || statusKey;
+
+  let calculatedGamesTotal = 0;
+  const gamesDetailed = (o.games || []).map((g, idx) => {
+    const cg = (allGames || []).find(ag =>
+      (g.id && (String(ag.id) === String(g.id) || String(ag._id) === String(g.id))) ||
+      (g.name && ag.name && ag.name.trim().toLowerCase() === g.name.trim().toLowerCase()) ||
+      (g.name_ar && ag.name_ar && ag.name_ar.trim() === g.name_ar.trim())
+    );
+    const size = g.size || (cg && cg.size) || '';
+    const price = (g.price !== undefined && g.price !== null && g.price !== '') ? Number(g.price) : ((cg && Number(cg.price)) || 0);
+    calculatedGamesTotal += price;
+    const hardDrive = g.hardDrive || g.hard_drive || (cg && (cg.hard_drive || cg.hardDrive)) || '1';
+    return {
+      ...g,
+      idx: idx + 1,
+      name: g.name || (cg && cg.name) || '',
+      name_ar: g.name_ar || g.nameAr || (cg && (cg.name_ar || cg.nameAr)) || '',
+      size,
+      price,
+      hardDrive
+    };
   });
-  const totalPrice = parseFloat(o.totalPrice || o.total_price || 0);
+
+  const parsedTotal = parseFloat(o.totalPrice || o.total_price || o.total || 0);
+  const totalPrice = parsedTotal > 0 ? parsedTotal : calculatedGamesTotal;
   const discount = parseFloat(o.discount || 0);
   const finalPrice = Math.max(0, totalPrice - discount);
-
-  const gamesWithSize = (o.games || []).map(g => {
-    const cg = allGames.find(ag => ag.id === g.id || ag.name === g.name);
-    return { ...g, size: g.size || (cg && cg.size) || '' };
-  });
-  const totalSize = formatTotalSize(gamesWithSize) || 'غير محدد';
+  const totalSize = formatTotalSize(gamesDetailed) || 'غير محدد';
 
   // QR tracking link
   const trackingUrl = `${window.location.origin}/orders.html?phone=${encodeURIComponent(customerPhone)}`;
-  const qrImgUrl = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&margin=0&data=${encodeURIComponent(trackingUrl)}`;
+  const qrImgUrl = `https://api.qrserver.com/v1/create-qr-code/?size=130x130&margin=0&data=${encodeURIComponent(trackingUrl)}`;
 
-  // Construct printable HTML
+  // Construct printable HTML calibrated for 80mm thermal receipt (70mm printable width)
   const receiptHtml = `
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -968,105 +1010,257 @@ function printOrderReceipt(orderId) {
   <meta charset="UTF-8">
   <title>وصل طلب #${orderId} — NewLife</title>
   <style>
-    @page { size: 80mm auto; margin: 3mm; }
-    body {
-      font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif;
-      margin: 0; padding: 6px;
-      color: #000; background: #fff;
-      font-size: 11px; line-height: 1.4;
-      width: 74mm;
+    @page {
+      size: 80mm auto;
+      margin: 0;
     }
-    .header { text-align: center; border-bottom: 2px dashed #333; padding-bottom: 8px; margin-bottom: 8px; }
-    .header h2 { margin: 0; font-size: 17px; font-weight: 900; }
-    .header .subtitle { font-size: 11px; margin-top: 2px; }
-    .header .phone { font-size: 13px; font-weight: bold; direction: ltr; display: inline-block; margin-top: 4px; }
-    .info-table { width: 100%; margin-bottom: 8px; font-size: 11px; }
-    .info-table td { padding: 2px 0; }
-    .games-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
-    .games-table th { border-bottom: 1px solid #000; text-align: right; padding: 4px 2px; font-size: 10px; }
-    .games-table td { padding: 4px 2px; border-bottom: 1px dotted #ccc; font-size: 10px; }
-    .total-box { border-top: 2px dashed #000; border-bottom: 2px dashed #000; padding: 6px 0; margin-bottom: 10px; }
-    .total-row { display: flex; justify-content: space-between; font-size: 11px; margin: 2px 0; }
-    .total-row.grand { font-size: 14px; font-weight: 900; }
-    .qr-box { text-align: center; margin-top: 6px; }
-    .qr-box img { width: 100px; height: 100px; }
-    .footer-note { text-align: center; font-size: 9px; color: #444; margin-top: 6px; }
+    * {
+      box-sizing: border-box !important;
+      margin: 0;
+      padding: 0;
+    }
+    html, body {
+      width: 100% !important;
+      background: #fff;
+      color: #000;
+      font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+      font-size: 11px;
+      line-height: 1.35;
+      direction: rtl;
+    }
+    .ticket {
+      width: 70mm;
+      max-width: 70mm;
+      margin: 0 auto;
+      padding: 5mm 2.5mm;
+    }
+    .store-header {
+      text-align: center;
+      margin-bottom: 5px;
+    }
+    .store-name {
+      font-size: 16px;
+      font-weight: 900;
+      letter-spacing: 0.5px;
+      margin-bottom: 2px;
+    }
+    .store-sub {
+      font-size: 10px;
+      color: #222;
+      margin-bottom: 3px;
+    }
+    .store-phone {
+      font-size: 12px;
+      font-weight: bold;
+      direction: ltr;
+      display: inline-block;
+      margin-bottom: 4px;
+    }
+    .divider-dash {
+      border-top: 1px dashed #000;
+      margin: 5px 0;
+    }
+    .info-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 10.5px;
+      margin-bottom: 4px;
+    }
+    .info-table td {
+      padding: 2px 1px;
+      vertical-align: top;
+    }
+    .info-table .lbl {
+      font-weight: bold;
+      white-space: nowrap;
+      width: 65px;
+      color: #222;
+    }
+    .games-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 5px 0;
+      table-layout: fixed;
+    }
+    .games-table th {
+      border-top: 1.5px solid #000;
+      border-bottom: 1.5px solid #000;
+      padding: 3px 1px;
+      font-size: 9.5px;
+      font-weight: 900;
+    }
+    .games-table td {
+      padding: 3px 1px;
+      border-bottom: 1px dotted #aaa;
+      font-size: 9.5px;
+      vertical-align: middle;
+      word-break: break-word;
+    }
+    .col-num { width: 14px; text-align: center; }
+    .col-title { width: auto; text-align: right; }
+    .col-hdd { width: 34px; text-align: center; }
+    .col-sz { width: 38px; text-align: center; }
+    .col-pr { width: 44px; text-align: left; }
+
+    .summary-box {
+      border: 1px dashed #444;
+      border-radius: 4px;
+      padding: 4px 6px;
+      margin: 6px 0;
+      background: #fafafa;
+    }
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 2px 0;
+      font-size: 10.5px;
+    }
+    .total-banner {
+      border: 1.5px solid #000;
+      background: #000;
+      color: #fff;
+      padding: 5px 4px;
+      text-align: center;
+      border-radius: 4px;
+      margin: 6px 0;
+    }
+    .total-banner-lbl { font-size: 10px; font-weight: normal; margin-bottom: 1px; }
+    .total-banner-val { font-size: 15px; font-weight: 900; }
+
+    .qr-block {
+      text-align: center;
+      margin: 6px 0 3px 0;
+    }
+    .qr-block img {
+      width: 100px;
+      height: 100px;
+      display: block;
+      margin: 0 auto;
+    }
+    .qr-title {
+      font-size: 8.5px;
+      font-weight: bold;
+      margin-top: 3px;
+    }
+    .footer-note {
+      text-align: center;
+      font-size: 8.5px;
+      color: #333;
+      margin-top: 5px;
+      line-height: 1.35;
+    }
   </style>
 </head>
 <body>
-  <div class="header">
-    <h2>NewLife GAMES</h2>
-    <div class="subtitle">مركز وكتالوج ألعاب البلايستيشن</div>
-    <div class="phone">📞 07732521767</div>
-  </div>
+  <div class="ticket">
+    <div class="store-header">
+      <div class="store-name">NewLife GAMES</div>
+      <div class="store-sub">مركز تنصيب وصيانة وألعاب البلايستيشن</div>
+      <div class="store-phone">📞 07732521767</div>
+    </div>
 
-  <table class="info-table">
-    <tr>
-      <td><strong>رقم الوصل:</strong> #${orderId}</td>
-      <td style="text-align:left;">${orderDate}</td>
-    </tr>
-    <tr>
-      <td colspan="2"><strong>الزبون:</strong> ${customerName}</td>
-    </tr>
-    <tr>
-      <td colspan="2"><strong>الهاتف:</strong> ${customerPhone}</td>
-    </tr>
-  </table>
+    <div class="divider-dash"></div>
 
-  <table class="games-table">
-    <thead>
+    <table class="info-table">
       <tr>
-        <th>اللعبة</th>
-        <th>الهارد</th>
-        <th>الحجم</th>
-        <th style="text-align:left;">السعر</th>
+        <td class="lbl">رقم الوصل:</td>
+        <td><strong>#${orderId}</strong></td>
       </tr>
-    </thead>
-    <tbody>
-      ${(o.games || []).map(g => `
+      <tr>
+        <td class="lbl">التاريخ:</td>
+        <td>${orderDate}</td>
+      </tr>
+      <tr>
+        <td class="lbl">الزبون:</td>
+        <td><strong>${customerName}</strong></td>
+      </tr>
+      <tr>
+        <td class="lbl">الهاتف:</td>
+        <td style="direction:ltr; text-align:right;">${customerPhone}</td>
+      </tr>
+      <tr>
+        <td class="lbl">الحالة:</td>
+        <td><strong>${statusLabel}</strong></td>
+      </tr>
+      ${customerAddress ? `
+      <tr>
+        <td class="lbl">العنوان:</td>
+        <td>${customerAddress}</td>
+      </tr>
+      ` : ''}
+      ${orderNotes ? `
+      <tr>
+        <td class="lbl">ملاحظات:</td>
+        <td>${orderNotes}</td>
+      </tr>
+      ` : ''}
+    </table>
+
+    <table class="games-table">
+      <thead>
         <tr>
-          <td><strong>${g.name_ar || g.nameAr || g.name}</strong></td>
-          <td>هارد ${g.hardDrive || '1'}</td>
-          <td>${g.size || ''}</td>
-          <td style="text-align:left;">${Number(g.price || 0).toLocaleString()}</td>
+          <th class="col-num">#</th>
+          <th class="col-title">اللعبة</th>
+          <th class="col-hdd">الهارد</th>
+          <th class="col-sz">الحجم</th>
+          <th class="col-pr">السعر</th>
         </tr>
-      `).join('')}
-    </tbody>
-  </table>
+      </thead>
+      <tbody>
+        ${gamesDetailed.map(g => `
+          <tr>
+            <td class="col-num">${g.idx}</td>
+            <td class="col-title">
+              <strong>${g.name_ar || g.name}</strong>
+              ${(g.name_ar && g.name && g.name !== g.name_ar) ? `<div style="font-size:8px; color:#555;">${g.name}</div>` : ''}
+            </td>
+            <td class="col-hdd">هارد ${g.hardDrive}</td>
+            <td class="col-sz">${g.size || '—'}</td>
+            <td class="col-pr"><strong>${g.price.toLocaleString()}</strong></td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
 
-  <div class="total-box">
-    <div class="total-row">
-      <span>عدد الألعاب:</span>
-      <span>${(o.games || []).length} لعبة</span>
-    </div>
-    <div class="total-row">
-      <span>إجمالي الحجم:</span>
-      <span>${totalSize}</span>
-    </div>
-    ${discount > 0 ? `
-      <div class="total-row">
-        <span>المبلغ الأصلي:</span>
-        <span>${totalPrice.toLocaleString()} د.ع</span>
+    <div class="summary-box">
+      <div class="summary-row">
+        <span>عدد الألعاب:</span>
+        <strong>${gamesDetailed.length} ألعاب</strong>
       </div>
-      <div class="total-row" style="color:green;">
-        <span>الخصم:</span>
-        <span>${discount.toLocaleString()} د.ع</span>
+      <div class="summary-row">
+        <span>إجمالي حجم الألعاب:</span>
+        <strong>${totalSize}</strong>
       </div>
-    ` : ''}
-    <div class="total-row grand">
-      <span>المجموع الكلي:</span>
-      <span>${finalPrice.toLocaleString()} د.ع</span>
+      ${discount > 0 ? `
+        <div class="summary-row">
+          <span>المبلغ الأصلي:</span>
+          <span>${totalPrice.toLocaleString()} د.ع</span>
+        </div>
+        <div class="summary-row" style="font-weight:bold;">
+          <span>الخصم الممنوح:</span>
+          <span>-${discount.toLocaleString()} د.ع</span>
+        </div>
+      ` : ''}
     </div>
-  </div>
 
-  <div class="qr-box">
-    <img src="${qrImgUrl}" alt="QR Tracking">
-    <div style="font-size:9px; font-weight:bold; margin-top:3px;">امسح الباركود لمتابعة حالة تجهيز طلبك</div>
-  </div>
+    <div class="total-banner">
+      <div class="total-banner-lbl">المجموع الكلي الواجب دفعه:</div>
+      <div class="total-banner-val">${finalPrice.toLocaleString()} دينار</div>
+    </div>
 
-  <div class="footer-note">
-    يرجى إبراز هذا الوصل عند استلام جهازك<br>
-    شكراً لتعاملكم مع NewLife 🎮
+    <div class="qr-block">
+      <img src="${qrImgUrl}" alt="QR Code">
+      <div class="qr-title">امسح الباركود بهاتفك لمتابعة حالة طلبك 📱</div>
+    </div>
+
+    <div class="divider-dash"></div>
+
+    <div class="footer-note">
+      يرجى إبراز هذا الوصل عند استلام جهازك<br>
+      شكراً لاختياركم NewLife GAMES 🎮<br>
+      - - - - - - - - - - - - - - - - - - - - -
+    </div>
   </div>
 </body>
 </html>
