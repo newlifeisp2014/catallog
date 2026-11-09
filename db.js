@@ -35,7 +35,9 @@ async function initTables() {
             ADD COLUMN IF NOT EXISTS notes TEXT DEFAULT '',
             ADD COLUMN IF NOT EXISTS available BOOLEAN DEFAULT true,
             ADD COLUMN IF NOT EXISTS hard_drive VARCHAR(50) DEFAULT '1',
-            ADD COLUMN IF NOT EXISTS is_new BOOLEAN DEFAULT false;
+            ADD COLUMN IF NOT EXISTS is_new BOOLEAN DEFAULT false,
+            ADD COLUMN IF NOT EXISTS is_arabic BOOLEAN DEFAULT false,
+            ADD COLUMN IF NOT EXISTS platform VARCHAR(20) DEFAULT 'PS4';
         `).catch(err => console.log('Games column add error:', err.message));
 
         // Orders table

@@ -31,4 +31,27 @@ router.get('/:phone', async (req, res) => {
     }
 });
 
+// Update customer points or name (Admin protected)
+router.put('/:phone', verifyToken, async (req, res) => {
+    try {
+        const { phone } = req.params;
+        const { name, points } = req.body;
+        const check = await pool.query('SELECT * FROM customers WHERE phone = $1', [phone]);
+        if (check.rows.length === 0) {
+            return res.status(404).json({ error: 'الزبون غير موجود' });
+        }
+        const updatedName = name !== undefined ? name.trim() : check.rows[0].name;
+        const updatedPoints = points !== undefined ? Math.max(0, parseInt(points) || 0) : check.rows[0].points;
+
+        await pool.query(
+            'UPDATE customers SET name = $1, points = $2 WHERE phone = $3',
+            [updatedName, updatedPoints, phone]
+        );
+        res.json({ success: true, phone, name: updatedName, points: updatedPoints });
+    } catch (error) {
+        console.error('Error updating customer:', error);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
 module.exports = router;

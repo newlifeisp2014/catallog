@@ -178,18 +178,27 @@
       </div>
 
 
-      <!-- Sort Dropdown -->
-      <div class="catalog-sort-group">
-        <label for="sortSelect" class="catalog-sort-label">
-          <i class="fas fa-sort-amount-down"></i>
-          <span>ترتيب حسب:</span>
-        </label>
-        <select id="sortSelect" class="catalog-sort-select" onchange="handleSortChange(this.value)" aria-label="ترتيب الألعاب">
-          <option value="newest" selected>الأحدث إضافة 🔥</option>
-          <option value="alpha">أبجدياً (أ - ي)</option>
-          <option value="priceAsc">السعر: من الأقل للأعلى</option>
-          <option value="priceDesc">السعر: من الأعلى للأقل</option>
-        </select>
+      <!-- Sort & Platform Group -->
+      <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+        <!-- Platform Switcher -->
+        <div class="platform-pills-group" id="platformTabs" style="display:inline-flex; background:var(--clr-surface); border:1px solid var(--clr-border-light); border-radius:var(--radius-full); padding:3px; gap:2px;">
+          <button type="button" class="cat-pill active" style="padding:0.3rem 0.75rem; font-size:0.78rem; border:none;" onclick="selectPlatform('all', this)">الكل</button>
+          <button type="button" class="cat-pill" style="padding:0.3rem 0.75rem; font-size:0.78rem; border:none;" onclick="selectPlatform('PS4', this)"><i class="fab fa-playstation" style="margin-left:3px;"></i>PS4</button>
+          <button type="button" class="cat-pill" style="padding:0.3rem 0.75rem; font-size:0.78rem; border:none;" onclick="selectPlatform('PS5', this)"><i class="fab fa-playstation" style="margin-left:3px;"></i>PS5</button>
+        </div>
+
+        <div class="catalog-sort-group">
+          <label for="sortSelect" class="catalog-sort-label">
+            <i class="fas fa-sort-amount-down"></i>
+            <span>ترتيب حسب:</span>
+          </label>
+          <select id="sortSelect" class="catalog-sort-select" onchange="handleSortChange(this.value)" aria-label="ترتيب الألعاب">
+            <option value="newest" selected>الأحدث إضافة 🔥</option>
+            <option value="alpha">أبجدياً (أ - ي)</option>
+            <option value="priceAsc">السعر: من الأقل للأعلى</option>
+            <option value="priceDesc">السعر: من الأعلى للأقل</option>
+          </select>
+        </div>
       </div>
     </div>
 
@@ -259,7 +268,33 @@
         <!-- Items rendered via JS -->
       </div>
 
-      <div class="cart-drawer__footer">
+      <div class="cart-drawer__footer" style="max-height:62vh; overflow-y:auto;">
+        <!-- 1. Interactive HDD Capacity Meter for Customer -->
+        <div id="cartHddCapacityBox" style="display:none; background:rgba(20,184,166,0.08); border:1px solid rgba(20,184,166,0.25); border-radius:var(--radius-md); padding:0.65rem 0.85rem; margin-bottom:0.75rem;">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem; margin-bottom:0.4rem;">
+            <span style="font-size:0.78rem; font-weight:700; color:#fff;">
+              <i class="fas fa-hdd" style="color:var(--clr-teal); margin-left:4px;"></i>حاسبة سعة الهارد:
+            </span>
+            <select id="customerHddSelect" onchange="updateCartHddMeter()" style="background:var(--clr-surface); color:#fff; border:1px solid var(--clr-border); border-radius:6px; padding:2px 8px; font-size:0.75rem; font-family:var(--font-ar); cursor:pointer;">
+              <option value="465">هارد 500 GB (فعلي 465GB)</option>
+              <option value="930" selected>هارد 1 TB (فعلي 930GB)</option>
+              <option value="1860">هارد 2 TB (فعلي 1860GB)</option>
+              <option value="3720">هارد 4 TB (فعلي 3720GB)</option>
+            </select>
+          </div>
+          <div style="width:100%; height:7px; background:rgba(255,255,255,0.08); border-radius:4px; overflow:hidden;">
+            <div id="cartHddFillBar" style="width:0%; height:100%; background:linear-gradient(90deg, #14b8a6, #f59e0b); transition:width 0.3s ease;"></div>
+          </div>
+          <div id="cartHddStatusText" style="display:flex; justify-content:space-between; font-size:0.73rem; color:var(--clr-text-muted); margin-top:0.35rem;">
+            <span>المستخدم: 0 GB</span>
+            <span>المتبقي: 930 GB</span>
+          </div>
+        </div>
+
+        <!-- 2. Automatic Bundle Offer Banner -->
+        <div id="cartBundleBanner" style="display:none; background:linear-gradient(135deg, rgba(124,58,237,0.16), rgba(245,158,11,0.14)); border:1px solid rgba(245,158,11,0.35); border-radius:var(--radius-md); padding:0.55rem 0.8rem; margin-bottom:0.75rem; font-size:0.78rem; color:#fff;">
+        </div>
+
         <div class="cart-total">
           <span class="cart-total__label">المجموع الكلي</span>
           <span class="cart-total__amount" id="cartTotal">0 دينار</span>
@@ -267,13 +302,39 @@
 
         <form class="checkout-form" id="checkoutForm" onsubmit="submitOrder(event)" novalidate>
           <div class="form-field">
-            <label for="customerName">الاسم الكامل</label>
+            <label for="customerPhone">رقم الهاتف *</label>
+            <input type="tel" id="customerPhone" class="form-input" placeholder="07xxxxxxxxx" required autocomplete="tel" oninput="handleCustomerPhoneLookup(this.value)">
+          </div>
+
+          <!-- Loyalty Points Recognition Box -->
+          <div id="loyaltyPointsBox" style="display:none; background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.35); border-radius:var(--radius-md); padding:0.55rem 0.75rem;">
+            <label style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem; cursor:pointer; margin:0;">
+              <div style="display:flex; align-items:center; gap:0.45rem;">
+                <input type="checkbox" id="useLoyaltyPointsCheckbox" onchange="renderCartItems()" style="width:16px; height:16px; accent-color:var(--clr-gold); cursor:pointer;">
+                <span id="loyaltyPointsText" style="font-size:0.78rem; font-weight:700; color:var(--clr-gold);">استخدام نقاطي كخصم</span>
+              </div>
+              <span id="loyaltyDiscountBadge" style="font-size:0.75rem; font-weight:800; color:var(--clr-success);"></span>
+            </label>
+          </div>
+
+          <div class="form-field">
+            <label for="customerName">الاسم الكامل *</label>
             <input type="text" id="customerName" class="form-input" placeholder="ادخل اسمك الكامل" required autocomplete="name">
           </div>
-          <div class="form-field">
-            <label for="customerPhone">رقم الهاتف</label>
-            <input type="tel" id="customerPhone" class="form-input" placeholder="07xxxxxxxxx" required autocomplete="tel">
+
+          <!-- Optional Promo Code -->
+          <div id="promoCodeContainer" style="display:none;" class="form-field">
+            <div style="display:flex; gap:0.4rem;">
+              <input type="text" id="promoCodeInput" class="form-input" placeholder="عندك كود خصم؟ اكتبه هنا" style="font-size:0.82rem; padding:0.5rem 0.75rem;">
+              <button type="button" class="btn btn-outline btn-sm" onclick="applyPromoCode()" style="white-space:nowrap;">تطبيق</button>
+            </div>
           </div>
+
+          <div class="form-field">
+            <label for="customerNotes">ملاحظات إضافية (اختياري)</label>
+            <input type="text" id="customerNotes" class="form-input" placeholder="مثال: أريد الألعاب معربة، أو جهازي تحديث 9.00...">
+          </div>
+
           <button type="submit" class="btn btn-gold btn-full btn-lg" id="checkoutBtn">
             <i class="fas fa-paper-plane"></i>
             إرسال الطلب

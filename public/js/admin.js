@@ -461,47 +461,77 @@ function viewOrder(id) {
         <div style="width:${progressPct}%;height:100%;background:linear-gradient(90deg, #7c3aed, #f59e0b);transition:width 0.3s ease;"></div>
       </div>
 
-      <div style="display:flex;flex-direction:column;gap:0.4rem;">
-        ${(o.games || []).map(g => {
-          const gId   = g.id || g.name || g.nameAr;
-          const isDone = completedGames.includes(gId);
+      <div style="display:flex;flex-direction:column;gap:0.75rem;">
+        ${(() => {
+          // تجميع الألعاب حسب رقم الهارد لتسهيل التنصيب السريع بدون فصل وربط الهاردات عشوائياً
+          const byDrive = {};
+          (o.games || []).forEach(g => {
+            const catalogGame = allGames.find(ag => ag.id === g.id || ag.name === g.name || ag.nameAr === (g.name_ar || g.nameAr));
+            const hd = g.hardDrive || g.hard_drive || (catalogGame && catalogGame.hardDrive) || '1';
+            if (!byDrive[hd]) byDrive[hd] = [];
+            byDrive[hd].push({ ...g, _catalogGame: catalogGame, _hd: hd });
+          });
 
-          const cancelledGamesArr = o.cancelledGames || o.cancelled_games || [];
-          const cancelObj = cancelledGamesArr.find(x => x.id === gId);
-          const isCancelled = !!cancelObj;
+          const sortedDrives = Object.keys(byDrive).sort((a, b) => Number(a) - Number(b));
+          return sortedDrives.map(hd => {
+            const driveGames = byDrive[hd];
+            const driveDoneCount = driveGames.filter(g => completedGames.includes(g.id || g.name || g.nameAr)).length;
+            const allDriveDone = driveDoneCount === driveGames.length && driveGames.length > 0;
 
-          // جلب الحجم من الطلب أو من الكتالوك كـ fallback للطلبات القديمة
-          const catalogGame = allGames.find(ag => ag.id === g.id || ag.name === g.name || ag.nameAr === (g.name_ar || g.nameAr));
-          const gameSize = g.size || (catalogGame && catalogGame.size) || '';
+            const gamesHtml = driveGames.map(g => {
+              const gId   = g.id || g.name || g.nameAr;
+              const isDone = completedGames.includes(gId);
 
-          let borderColor = 'var(--clr-border-light)';
-          if (isDone) borderColor = 'rgba(34,197,94,0.3)';
-          else if (isCancelled) borderColor = 'rgba(239,68,68,0.3)';
+              const cancelledGamesArr = o.cancelledGames || o.cancelled_games || [];
+              const cancelObj = cancelledGamesArr.find(x => x.id === gId);
+              const isCancelled = !!cancelObj;
 
-          return `
-            <div class="order-game-item" style="display:flex;flex-direction:column;gap:0.4rem;padding:0.65rem 0.8rem;background:var(--clr-surface-2);border-radius:var(--radius-md);border:1px solid ${borderColor};">
-              <div style="display:flex;align-items:center;justify-content:space-between;">
-                <label style="display:flex;align-items:center;gap:0.6rem;cursor:${isCancelled ? 'not-allowed' : 'pointer'};flex:1;margin:0;opacity:${isCancelled ? '0.6' : '1'}">
-                  <input type="checkbox" ${isDone ? 'checked' : ''} ${isCancelled ? 'disabled' : ''}
-                    onchange="toggleGameCompleted('${orderId}', '${gId.replace(/'/g, "\\'")}', this.checked)"
-                    style="width:18px;height:18px;cursor:pointer;accent-color:var(--clr-gold);">
-                  <span style="font-size:0.92rem;font-weight:${isDone ? '700' : '500'};color:${isDone ? 'var(--clr-success)' : isCancelled ? 'var(--clr-danger)' : 'var(--clr-text)'};text-decoration:${isDone || isCancelled ? 'line-through' : 'none'};">
-                    ${g.name_ar || g.nameAr || g.name}
+              const catalogGame = g._catalogGame;
+              const gameSize = g.size || (catalogGame && catalogGame.size) || '';
+
+              let borderColor = 'var(--clr-border-light)';
+              if (isDone) borderColor = 'rgba(34,197,94,0.3)';
+              else if (isCancelled) borderColor = 'rgba(239,68,68,0.3)';
+
+              return `
+                <div class="order-game-item" style="display:flex;flex-direction:column;gap:0.4rem;padding:0.65rem 0.8rem;background:var(--clr-surface-2);border-radius:var(--radius-md);border:1px solid ${borderColor};">
+                  <div style="display:flex;align-items:center;justify-content:space-between;">
+                    <label style="display:flex;align-items:center;gap:0.6rem;cursor:${isCancelled ? 'not-allowed' : 'pointer'};flex:1;margin:0;opacity:${isCancelled ? '0.6' : '1'}">
+                      <input type="checkbox" ${isDone ? 'checked' : ''} ${isCancelled ? 'disabled' : ''}
+                        onchange="toggleGameCompleted('${orderId}', '${gId.replace(/'/g, "\\'")}', this.checked)"
+                        style="width:18px;height:18px;cursor:pointer;accent-color:var(--clr-gold);">
+                      <span style="font-size:0.92rem;font-weight:${isDone ? '700' : '500'};color:${isDone ? 'var(--clr-success)' : isCancelled ? 'var(--clr-danger)' : 'var(--clr-text)'};text-decoration:${isDone || isCancelled ? 'line-through' : 'none'};">
+                        ${g.name_ar || g.nameAr || g.name}
+                      </span>
+                    </label>
+                    <div style="display:flex;align-items:center;gap:0.5rem;">
+                      ${gameSize ? `<span style="font-size:0.72rem;background:rgba(124,58,237,0.15);color:var(--clr-primary-light);border-radius:4px;padding:0.15rem 0.45rem;font-weight:600;"><i class="fas fa-hdd" style="font-size:0.62rem;margin-left:2px;"></i>${gameSize}</span>` : ''}
+                      ${isCancelled ?
+                        `<button class="btn btn-ghost btn-sm" style="color:var(--clr-text-muted);padding:0.2rem 0.4rem;" onclick="toggleGameCancelled('${orderId}', '${gId.replace(/'/g, "\\'")}', true)" title="تراجع عن الإلغاء"><i class="fas fa-undo"></i></button>` :
+                        `<button class="btn btn-ghost btn-sm" style="color:var(--clr-danger);padding:0.2rem 0.4rem;" onclick="toggleGameCancelled('${orderId}', '${gId.replace(/'/g, "\\'")}')" title="إلغاء اللعبة"><i class="fas fa-times"></i></button>`
+                      }
+                    </div>
+                  </div>
+                  ${isCancelled ? `<div style="font-size:0.8rem;color:var(--clr-danger);background:rgba(239,68,68,0.1);padding:0.3rem 0.5rem;border-radius:4px;"><i class="fas fa-info-circle"></i> تم الإلغاء: ${cancelObj.reason}</div>` : ''}
+                </div>
+              `;
+            }).join('');
+
+            return `
+              <div style="background:rgba(255,255,255,0.02); border:1px solid ${allDriveDone ? 'rgba(34,197,94,0.35)' : 'var(--clr-border-light)'}; border-radius:var(--radius-md); padding:0.65rem;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem; padding:0 0.25rem;">
+                  <span style="font-size:0.84rem; font-weight:800; color:${allDriveDone ? 'var(--clr-success)' : 'var(--clr-gold)'};">
+                    <i class="fas fa-hdd" style="margin-left:5px;"></i>هارد رقم ${hd} (${driveGames.length} ألعاب)
                   </span>
-                </label>
-                <div style="display:flex;align-items:center;gap:0.5rem;">
-                  ${gameSize ? `<span style="font-size:0.72rem;background:rgba(124,58,237,0.15);color:var(--clr-primary-light);border-radius:4px;padding:0.15rem 0.45rem;font-weight:600;"><i class="fas fa-hdd" style="font-size:0.62rem;margin-left:2px;"></i>${gameSize}</span>` : ''}
-                  <span style="font-size:0.75rem;padding:0.2rem 0.5rem;background:rgba(255,255,255,0.05);border-radius:var(--radius-sm);">هارد ${g.hardDrive || '1'}</span>
-                  ${isCancelled ?
-                    `<button class="btn btn-ghost btn-sm" style="color:var(--clr-text-muted);padding:0.2rem 0.4rem;" onclick="toggleGameCancelled('${orderId}', '${gId.replace(/'/g, "\\'")}', true)" title="تراجع عن الإلغاء"><i class="fas fa-undo"></i></button>` :
-                    `<button class="btn btn-ghost btn-sm" style="color:var(--clr-danger);padding:0.2rem 0.4rem;" onclick="toggleGameCancelled('${orderId}', '${gId.replace(/'/g, "\\'")}')" title="إلغاء اللعبة"><i class="fas fa-times"></i></button>`
-                  }
+                  <span style="font-size:0.75rem; color:var(--clr-text-muted);">${driveDoneCount}/${driveGames.length} منجز</span>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:0.4rem;">
+                  ${gamesHtml}
                 </div>
               </div>
-              ${isCancelled ? `<div style="font-size:0.8rem;color:var(--clr-danger);background:rgba(239,68,68,0.1);padding:0.3rem 0.5rem;border-radius:4px;"><i class="fas fa-info-circle"></i> تم الإلغاء: ${cancelObj.reason}</div>` : ''}
-            </div>
-          `;
-        }).join('')}
+            `;
+          }).join('');
+        })()}
       </div>
 
       ${(() => {
@@ -990,7 +1020,7 @@ async function printOrderReceipt(orderId) {
       price,
       hardDrive
     };
-  });
+  }).sort((a, b) => (parseInt(a.hardDrive) || 1) - (parseInt(b.hardDrive) || 1)).map((g, i) => ({ ...g, idx: i + 1 }));
 
   const parsedTotal = parseFloat(o.totalPrice || o.total_price || o.total || 0);
   const totalPrice = parsedTotal > 0 ? parsedTotal : calculatedGamesTotal;
@@ -1315,6 +1345,8 @@ function toggleAdminFilterNew() {
 function renderGames() {
   const grid  = document.getElementById('adminGamesGrid');
   const input = document.getElementById('adminSearchInput');
+  const hdSelect = document.getElementById('adminFilterHardDrive');
+  const availSelect = document.getElementById('adminFilterAvailable');
   if (!grid) return;
 
   const catLabel = {
@@ -1324,12 +1356,20 @@ function renderGames() {
   };
 
   const q = (input ? input.value : '').toLowerCase();
+  const filterHd = hdSelect ? hdSelect.value : 'all';
+  const filterAvail = availSelect ? availSelect.value : 'all';
+
   let filtered = allGames.filter(g => {
     const matchSearch = !q ||
       g.name.toLowerCase().includes(q) ||
       (g.nameAr || '').toLowerCase().includes(q);
     const matchNew = !adminFilterNew || Boolean(g.isNew);
-    return matchSearch && matchNew;
+    const matchHd = filterHd === 'all' || String(g.hardDrive || '1') === String(filterHd);
+    let matchAvail = true;
+    if (filterAvail === 'available') matchAvail = g.available !== false;
+    else if (filterAvail === 'hidden') matchAvail = g.available === false;
+    else if (filterAvail === 'arabic') matchAvail = Boolean(g.isArabic);
+    return matchSearch && matchNew && matchHd && matchAvail;
   });
 
   if (filtered.length === 0) {
@@ -1349,7 +1389,7 @@ function renderGames() {
   });
 
   grid.innerHTML = sorted.map(game => `
-    <div class="admin-game-card ${game.isNew ? 'is-new' : ''}">
+    <div class="admin-game-card ${game.isNew ? 'is-new' : ''}" style="${game.available === false ? 'opacity:0.62;border-color:rgba(239,68,68,0.45);' : ''}">
       <img
         class="admin-game-card__img"
         src="${game.image || ''}"
@@ -1358,9 +1398,14 @@ function renderGames() {
         loading="lazy"
       >
       <div class="admin-game-card__body">
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:6px;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:6px; flex-wrap:wrap;">
           <div class="admin-game-card__name">${game.nameAr || game.name}</div>
-          ${game.isNew ? '<span class="admin-badge-new"><i class="fas fa-fire"></i> جديد</span>' : ''}
+          <div style="display:flex; gap:4px; flex-wrap:wrap;">
+            ${game.available === false ? '<span style="background:rgba(239,68,68,0.2);color:#f87171;border:1px solid rgba(239,68,68,0.4);padding:0.1rem 0.45rem;border-radius:12px;font-size:0.68rem;font-weight:700;">مخفية</span>' : ''}
+            ${game.isArabic ? '<span style="background:rgba(16,185,129,0.2);color:#34d399;border:1px solid rgba(16,185,129,0.4);padding:0.1rem 0.45rem;border-radius:12px;font-size:0.68rem;font-weight:700;">معربة 🇸🇦</span>' : ''}
+            ${String(game.platform || 'PS4').toUpperCase() === 'PS5' ? '<span style="background:rgba(59,130,246,0.25);color:#60a5fa;border:1px solid rgba(59,130,246,0.45);padding:0.1rem 0.45rem;border-radius:12px;font-size:0.68rem;font-weight:700;">PS5</span>' : ''}
+            ${game.isNew ? '<span class="admin-badge-new"><i class="fas fa-fire"></i> جديد</span>' : ''}
+          </div>
         </div>
         <div class="admin-game-card__meta">
           <span><i class="fas fa-hdd" style="font-size:0.65rem;margin-left:3px;"></i>هارد ${game.hardDrive || '1'}</span>
@@ -1369,7 +1414,7 @@ function renderGames() {
         </div>
         <div class="admin-game-card__price">${Number(game.price).toLocaleString()} دينار</div>
       </div>
-      <div class="admin-game-card__actions">
+      <div class="admin-game-card__actions" style="flex-wrap:wrap;">
         <button class="btn btn-ghost btn-sm" style="flex:1;" onclick="openEditGameModal('${game.id}')">
           <i class="fas fa-edit"></i> تعديل
         </button>
@@ -1380,6 +1425,22 @@ function renderGames() {
         >
           <i class="fas fa-fire" style="color:${game.isNew ? 'var(--clr-gold)' : 'var(--clr-text-muted)'};"></i>
           ${game.isNew ? 'جديد 🔥' : 'عادي'}
+        </button>
+        <button 
+          class="btn btn-ghost btn-sm" 
+          onclick="quickToggleArabic('${game.id}')" 
+          title="تبديل حالة التعريب 🇸🇦"
+          style="${game.isArabic ? 'border-color:#10b981;color:#34d399;' : ''}"
+        >
+          🇸🇦
+        </button>
+        <button 
+          class="btn btn-ghost btn-sm" 
+          onclick="quickToggleAvailable('${game.id}')" 
+          title="${game.available === false ? 'إظهار اللعبة في المتجر' : 'إخفاء اللعبة مؤقتاً'}"
+          style="${game.available === false ? 'border-color:#ef4444;color:#f87171;' : ''}"
+        >
+          <i class="fas ${game.available === false ? 'fa-eye-slash' : 'fa-eye'}"></i>
         </button>
         <button class="btn btn-ghost btn-sm" onclick="refreshGameImage('${game.id}')" title="تحديث الصورة والشرح تلقائياً">
           <i class="fas fa-sync-alt"></i>
@@ -1404,6 +1465,40 @@ async function quickToggleNew(id) {
     game.isNew = data.isNew;
     renderGames();
     showToast(data.isNew ? 'تم تمييز اللعبة كـ جديدة 🔥' : 'تم إلغاء وسم اللعبة الجديدة');
+  } catch (err) {
+    showToast(err.message || 'خطأ أثناء التحديث', 'error');
+  }
+}
+
+async function quickToggleArabic(id) {
+  const game = allGames.find(g => g.id === id);
+  if (!game) return;
+
+  try {
+    const res = await fetch(`/api/games/${id}/toggle-arabic`, { method: 'PATCH' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تحديث التعريب');
+
+    game.isArabic = data.isArabic;
+    renderGames();
+    showToast(data.isArabic ? 'تم تمييز اللعبة كـ معربة 🇸🇦' : 'تم إلغاء وسم التعريب');
+  } catch (err) {
+    showToast(err.message || 'خطأ أثناء التحديث', 'error');
+  }
+}
+
+async function quickToggleAvailable(id) {
+  const game = allGames.find(g => g.id === id);
+  if (!game) return;
+
+  try {
+    const res = await fetch(`/api/games/${id}/toggle-available`, { method: 'PATCH' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تحديث التوفر');
+
+    game.available = data.available;
+    renderGames();
+    showToast(data.available ? 'تم إظهار اللعبة للزبائن ✅' : 'تم إخفاء اللعبة مؤقتاً 👁️‍🗨️');
   } catch (err) {
     showToast(err.message || 'خطأ أثناء التحديث', 'error');
   }
@@ -1461,6 +1556,15 @@ function openGameModal() {
   if (document.getElementById('gameIsNew')) {
     document.getElementById('gameIsNew').checked = true; // New games default to checked!
   }
+  if (document.getElementById('gameAvailable')) {
+    document.getElementById('gameAvailable').checked = true;
+  }
+  if (document.getElementById('gameIsArabic')) {
+    document.getElementById('gameIsArabic').checked = false;
+  }
+  if (document.getElementById('gamePlatform')) {
+    document.getElementById('gamePlatform').value = 'PS4';
+  }
   const autoBadge = document.getElementById('autoCategoryBadge');
   if (autoBadge) autoBadge.style.display = 'none';
   // إخفاء المعاينة عند فتح نموذج جديد
@@ -1493,6 +1597,15 @@ function openEditGameModal(id) {
   document.getElementById('gameDescription').value = game.description || '';
   if (document.getElementById('gameIsNew')) {
     document.getElementById('gameIsNew').checked = Boolean(game.isNew);
+  }
+  if (document.getElementById('gameAvailable')) {
+    document.getElementById('gameAvailable').checked = game.available !== false;
+  }
+  if (document.getElementById('gameIsArabic')) {
+    document.getElementById('gameIsArabic').checked = Boolean(game.isArabic);
+  }
+  if (document.getElementById('gamePlatform')) {
+    document.getElementById('gamePlatform').value = String(game.platform || 'PS4').toUpperCase();
   }
 
   const autoBadge = document.getElementById('autoCategoryBadge');
@@ -1891,7 +2004,10 @@ async function saveGame(e) {
     image:       document.getElementById('gameImage').value.trim(),
     trailer:     document.getElementById('gameTrailer') ? document.getElementById('gameTrailer').value.trim() : '',
     description: document.getElementById('gameDescription').value.trim(),
-    isNew:       document.getElementById('gameIsNew') ? document.getElementById('gameIsNew').checked : true
+    isNew:       document.getElementById('gameIsNew') ? document.getElementById('gameIsNew').checked : true,
+    available:   document.getElementById('gameAvailable') ? document.getElementById('gameAvailable').checked : true,
+    isArabic:    document.getElementById('gameIsArabic') ? document.getElementById('gameIsArabic').checked : false,
+    platform:    document.getElementById('gamePlatform') ? document.getElementById('gamePlatform').value : 'PS4'
   };
 
   const btn  = e.target.querySelector('button[type="submit"]') ||
@@ -1937,13 +2053,147 @@ async function deleteGame(id) {
   }
 }
 
+// ── Bulk Edit Games Modal ─────────────────────────────────────
+function openBulkEditModal() {
+  const form = document.getElementById('bulkEditForm');
+  if (form) form.reset();
+  const currentHd = document.getElementById('adminFilterHardDrive')?.value;
+  if (currentHd && currentHd !== 'all' && document.getElementById('bulkTargetHardDrive')) {
+    document.getElementById('bulkTargetHardDrive').value = currentHd;
+  }
+  document.getElementById('bulkEditModal')?.classList.add('active');
+}
+
+function closeBulkEditModal() {
+  document.getElementById('bulkEditModal')?.classList.remove('active');
+}
+
+async function submitBulkEditGames(e) {
+  e.preventDefault();
+  const targetHardDrive = document.getElementById('bulkTargetHardDrive')?.value || 'all';
+  const targetCategory  = document.getElementById('bulkTargetCategory')?.value || 'all';
+  const newPrice        = document.getElementById('bulkNewPrice')?.value || '';
+  const newHardDrive    = document.getElementById('bulkNewHardDrive')?.value || 'keep';
+  const setAvailable    = document.getElementById('bulkSetAvailable')?.value || 'keep';
+
+  if (newPrice === '' && newHardDrive === 'keep' && setAvailable === 'keep') {
+    showToast('يرجى اختيار تعديل واحد على الأقل لتطبيقه', 'info');
+    return;
+  }
+
+  if (!confirm('هل أنت متأكد من تطبيق التعديل الجماعي على الألعاب المحددة؟')) return;
+
+  try {
+    const res = await fetch('/api/games/bulk-update', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ targetHardDrive, targetCategory, newPrice, newHardDrive, setAvailable })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل التعديل الجماعي');
+
+    showToast(`✅ تم تحديث ${data.updatedCount || 0} لعبة بنجاح!`);
+    closeBulkEditModal();
+    await loadData();
+  } catch (err) {
+    showToast(err.message || 'خطأ أثناء التعديل الجماعي', 'error');
+  }
+}
+
+// ── Store Settings & Telegram Modal ───────────────────────────
+async function openSettingsModal() {
+  const modal = document.getElementById('settingsModal');
+  if (!modal) return;
+  modal.classList.add('active');
+
+  try {
+    const res = await fetch('/api/orders/settings/config', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await res.json();
+    if (data && data.settings) {
+      const s = data.settings;
+      if (document.getElementById('setTelegramToken')) document.getElementById('setTelegramToken').value = s.telegram_bot_token || '';
+      if (document.getElementById('setTelegramChatId')) document.getElementById('setTelegramChatId').value = s.telegram_chat_id || '';
+      if (document.getElementById('setBundleEnabled')) document.getElementById('setBundleEnabled').value = s.bundle_enabled === 'false' ? 'false' : 'true';
+      if (document.getElementById('setBundleEveryN')) document.getElementById('setBundleEveryN').value = s.bundle_every_n || '6';
+      if (document.getElementById('setPromoCode')) document.getElementById('setPromoCode').value = s.promo_code || '';
+      if (document.getElementById('setPromoDiscount')) document.getElementById('setPromoDiscount').value = s.promo_discount || '0';
+    }
+  } catch (err) {
+    console.warn('Could not load settings config:', err);
+  }
+}
+
+function closeSettingsModal() {
+  document.getElementById('settingsModal')?.classList.remove('active');
+}
+
+async function saveStoreSettings(e) {
+  e.preventDefault();
+  const payload = {
+    telegram_bot_token: document.getElementById('setTelegramToken')?.value.trim() || '',
+    telegram_chat_id:   document.getElementById('setTelegramChatId')?.value.trim() || '',
+    bundle_enabled:     document.getElementById('setBundleEnabled')?.value || 'true',
+    bundle_every_n:     document.getElementById('setBundleEveryN')?.value || '6',
+    promo_code:         document.getElementById('setPromoCode')?.value.trim() || '',
+    promo_discount:     document.getElementById('setPromoDiscount')?.value || '0'
+  };
+
+  try {
+    const res = await fetch('/api/orders/settings/config', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل حفظ الإعدادات');
+    showToast('✅ تم حفظ إعدادات المتجر والتلكرام بنجاح!');
+    closeSettingsModal();
+  } catch (err) {
+    showToast(err.message || 'خطأ في حفظ الإعدادات', 'error');
+  }
+}
+
+async function testTelegramAlert() {
+  const botToken = document.getElementById('setTelegramToken')?.value.trim() || '';
+  const chatId   = document.getElementById('setTelegramChatId')?.value.trim() || '';
+  if (!botToken || !chatId) {
+    showToast('يرجى إدخال Bot Token و Chat ID أولاً', 'info');
+    return;
+  }
+
+  showToast('جاري إرسال إشعار تجريبي إلى التلكرام...', 'info');
+  try {
+    const res = await fetch('/api/orders/settings/test-telegram', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ botToken, chatId })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل إرسال الرسالة');
+    showToast('✈️ تم إرسال الرسالة التجريبية إلى التلكرام بنجاح!');
+  } catch (err) {
+    showToast(err.message || 'تأكد من صحة التوكن والـ Chat ID', 'error');
+  }
+}
+
 // ── Customers ─────────────────────────────────────────────────
 function renderCustomers() {
   const tbody = document.getElementById('customersTableBody');
   if (!tbody) return;
 
   if (allCustomers.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:2rem;color:var(--clr-text-muted);">لا يوجد زبائن مسجلون</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--clr-text-muted);">لا يوجد زبائن مسجلون</td></tr>`;
     return;
   }
 
@@ -1951,13 +2201,63 @@ function renderCustomers() {
 
   tbody.innerHTML = sorted.map((c, i) => {
     const rankCls = i === 0 ? 'customer-rank--gold' : i === 1 ? 'customer-rank--silver' : i === 2 ? 'customer-rank--bronze' : '';
+    const safeName = (c.name || '').replace(/'/g, "\\'");
     return `<tr>
       <td><span class="customer-rank ${rankCls}">${i + 1}</span></td>
       <td style="font-family:var(--font-en);font-size:0.85rem;">${c.phone}</td>
       <td><strong>${c.name}</strong></td>
       <td><strong style="color:var(--clr-gold);">${c.points || 0}</strong> <span style="font-size:0.75rem;color:var(--clr-text-muted);">نقطة</span></td>
+      <td>
+        <div style="display:flex;gap:0.4rem;flex-wrap:wrap;">
+          <button class="btn btn-ghost btn-sm" onclick="editCustomerPoints('${c.phone}', '${safeName}', ${c.points || 0})" title="تعديل النقاط والاسم">
+            <i class="fas fa-coins" style="color:var(--clr-gold);"></i> تعديل النقاط
+          </button>
+          <button class="btn btn-ghost btn-sm" onclick="viewCustomerOrders('${c.phone}')" title="عرض طلبات الزبون">
+            <i class="fas fa-shopping-bag"></i> الطلبات
+          </button>
+        </div>
+      </td>
     </tr>`;
   }).join('');
+}
+
+async function editCustomerPoints(phone, currentName, currentPoints) {
+  const newPointsStr = prompt(`تعديل رصيد نقاط الزبون (${currentName} - ${phone}):\n(كل 1 نقطة = 100 د.ع خصم)`, currentPoints);
+  if (newPointsStr === null) return;
+  const points = parseInt(newPointsStr);
+  if (isNaN(points) || points < 0) {
+    showToast('يرجى إدخال رقم نقاط صحيح', 'error');
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/customers/${encodeURIComponent(phone)}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ name: currentName, points })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تحديث النقاط');
+
+    const cust = allCustomers.find(c => c.phone === phone);
+    if (cust) cust.points = points;
+    renderCustomers();
+    showToast(`✅ تم تحديث نقاط الزبون إلى ${points} نقطة`);
+  } catch (err) {
+    showToast(err.message || 'خطأ في تحديث النقاط', 'error');
+  }
+}
+
+function viewCustomerOrders(phone) {
+  switchTab('orders', document.getElementById('nav-orders'));
+  const searchInput = document.getElementById('orderSearchInput');
+  if (searchInput) {
+    searchInput.value = phone;
+    renderOrders();
+  }
 }
 
 // ── Sidebar (Mobile) ──────────────────────────────────────────

@@ -74,6 +74,11 @@
 
         <span class="nav-section-label">أدوات</span>
 
+        <a class="nav-item" onclick="openSettingsModal()" id="nav-settings">
+          <span class="nav-item__icon" style="color:var(--clr-gold);"><i class="fas fa-sliders-h"></i></span>
+          العروض والتلكرام
+        </a>
+
         <a class="nav-item" onclick="window.location.href='/qr.html'" id="nav-qr">
           <span class="nav-item__icon"><i class="fas fa-qrcode"></i></span>
           الباركود والشبكة
@@ -261,8 +266,34 @@
         <div class="section-header">
           <h2 class="section-title">قائمة الألعاب</h2>
           <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+            <!-- Hard Drive Filter -->
+            <select id="adminFilterHardDrive" class="form-input" onchange="renderGames()" style="width:auto; padding:0.35rem 0.65rem; font-size:0.8rem; height:34px;">
+              <option value="all">كل الهاردات</option>
+              <option value="1">هارد 1</option>
+              <option value="2">هارد 2</option>
+              <option value="3">هارد 3</option>
+              <option value="4">هارد 4</option>
+              <option value="5">هارد 5</option>
+              <option value="6">هارد 6</option>
+              <option value="7">هارد 7</option>
+              <option value="8">هارد 8</option>
+              <option value="9">هارد 9</option>
+              <option value="10">هارد 10</option>
+            </select>
+
+            <!-- Availability Filter -->
+            <select id="adminFilterAvailable" class="form-input" onchange="renderGames()" style="width:auto; padding:0.35rem 0.65rem; font-size:0.8rem; height:34px;">
+              <option value="all">كل الحالات</option>
+              <option value="available">متوفرة فقط</option>
+              <option value="hidden">مخفية فقط</option>
+              <option value="arabic">معربة فقط 🇸🇦</option>
+            </select>
+
             <button class="btn btn-outline btn-sm" id="adminFilterNewBtn" onclick="toggleAdminFilterNew()" title="عرض الألعاب الجديدة فقط" style="white-space:nowrap;">
               <i class="fas fa-fire" style="color:var(--clr-gold);"></i> الألعاب الجديدة
+            </button>
+            <button class="btn btn-outline btn-sm" onclick="openBulkEditModal()" title="تعديل الأسعار أو رقم الهارد جماعياً" style="white-space:nowrap; border-color:#10b981; color:#10b981;">
+              <i class="fas fa-layer-group"></i> تعديل جماعي
             </button>
             <button class="btn btn-outline btn-sm" onclick="bulkRefreshImages('images')" title="تحديث أغلفة الألعاب الناقصة تلقائياً من موقع PSPKG الرسمي" style="white-space:nowrap;">
               <i class="fas fa-image"></i> جلب الصور (PSPKG)
@@ -290,7 +321,7 @@
       <!-- ══ CUSTOMERS TAB ══ -->
       <section id="customersTab" class="tab-content" aria-label="الزبائن">
         <div class="section-header">
-          <h2 class="section-title">قائمة الزبائن</h2>
+          <h2 class="section-title">قائمة الزبائن ونقاط الولاء</h2>
         </div>
         <div class="table-container">
           <table class="data-table">
@@ -299,11 +330,12 @@
                 <th>#</th>
                 <th>رقم الهاتف</th>
                 <th>الاسم</th>
-                <th>النقاط</th>
+                <th>النقاط (1 نقطة = 100 د.ع)</th>
+                <th>إجراءات</th>
               </tr>
             </thead>
             <tbody id="customersTableBody">
-              <tr><td colspan="4" style="text-align:center;padding:2rem;color:var(--clr-text-muted);">جاري التحميل...</td></tr>
+              <tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--clr-text-muted);">جاري التحميل...</td></tr>
             </tbody>
           </table>
         </div>
@@ -425,12 +457,35 @@
               <textarea id="gameDescription" class="form-input" rows="3" placeholder="سيتم جلبه تلقائياً أو يمكنك كتابته هنا..."></textarea>
             </div>
 
-            <div class="form-group form-group--span2">
-              <label style="display:flex;align-items:center;gap:0.75rem;cursor:pointer;padding:0.85rem 1rem;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.35);border-radius:var(--radius-md);margin-top:0.25rem;">
-                <input type="checkbox" id="gameIsNew" style="width:1.25rem;height:1.25rem;accent-color:var(--clr-gold);cursor:pointer;" checked>
+            <div class="form-group">
+              <label for="gamePlatform">المنصة *</label>
+              <select id="gamePlatform" class="form-input">
+                <option value="PS4" selected>PlayStation 4 (PS4)</option>
+                <option value="PS5">PlayStation 5 (PS5)</option>
+              </select>
+            </div>
+
+            <div class="form-group" style="display:flex; align-items:flex-end;">
+              <label style="display:flex;align-items:center;gap:0.6rem;cursor:pointer;padding:0.65rem 0.85rem;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.35);border-radius:var(--radius-md);width:100%;margin:0;">
+                <input type="checkbox" id="gameIsArabic" style="width:1.15rem;height:1.15rem;accent-color:#10b981;cursor:pointer;">
+                <span style="font-weight:700;color:#10b981;font-size:0.86rem;"><i class="fas fa-language"></i> لعبة معربة 🇸🇦</span>
+              </label>
+            </div>
+
+            <div class="form-group form-group--span2" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:0.75rem;">
+              <label style="display:flex;align-items:center;gap:0.75rem;cursor:pointer;padding:0.85rem 1rem;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.35);border-radius:var(--radius-md);margin:0;">
+                <input type="checkbox" id="gameIsNew" style="width:1.2rem;height:1.2rem;accent-color:var(--clr-gold);cursor:pointer;" checked>
                 <div>
-                  <div style="font-weight:700;color:var(--clr-gold);font-size:0.92rem;"><i class="fas fa-fire"></i> لعبة جديدة (تمييز اللعبة بشارة "جديد 🔥" للزبائن)</div>
-                  <div style="font-size:0.78rem;color:var(--clr-text-muted);margin-top:0.15rem;">تظهر اللعبة مميزة بشارة جديدة براقة في واجهة المتجر وتظهر في تصنيف "أحدث الإضافات"</div>
+                  <div style="font-weight:700;color:var(--clr-gold);font-size:0.88rem;"><i class="fas fa-fire"></i> لعبة جديدة 🔥</div>
+                  <div style="font-size:0.74rem;color:var(--clr-text-muted);">تظهر في "أحدث الإضافات"</div>
+                </div>
+              </label>
+
+              <label style="display:flex;align-items:center;gap:0.75rem;cursor:pointer;padding:0.85rem 1rem;background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.35);border-radius:var(--radius-md);margin:0;">
+                <input type="checkbox" id="gameAvailable" style="width:1.2rem;height:1.2rem;accent-color:var(--clr-primary);cursor:pointer;" checked>
+                <div>
+                  <div style="font-weight:700;color:var(--clr-primary-light);font-size:0.88rem;"><i class="fas fa-check-circle"></i> متوفرة للطلب</div>
+                  <div style="font-size:0.74rem;color:var(--clr-text-muted);">إلغاء التحديد يخفيها مؤقتاً</div>
                 </div>
               </label>
             </div>
@@ -441,6 +496,161 @@
         <button type="button" class="btn btn-ghost" onclick="closeGameModal()">إلغاء</button>
         <button type="submit" form="gameForm" class="btn btn-primary" style="flex:1;">
           <i class="fas fa-save"></i> حفظ اللعبة
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       STORE SETTINGS & TELEGRAM MODAL
+  ════════════════════════════════════════ -->
+  <div class="modal-overlay" id="settingsModal" role="dialog" aria-modal="true" onclick="handleModalClick(event,'settingsModal')">
+    <div class="modal modal--wide">
+      <div class="modal__header">
+        <h2 class="modal__title"><i class="fas fa-sliders-h" style="color:var(--clr-gold);margin-left:0.5rem;"></i>إعدادات العروض وإشعارات التلكرام</h2>
+        <button class="modal__close" onclick="closeSettingsModal()"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal__body">
+        <form id="settingsForm" onsubmit="saveStoreSettings(event)">
+          <!-- Telegram Section -->
+          <div style="background:rgba(59,130,246,0.08); border:1px solid rgba(59,130,246,0.28); border-radius:var(--radius-lg); padding:1rem 1.2rem; margin-bottom:1.25rem;">
+            <h4 style="margin:0 0 0.35rem; color:#60a5fa; font-size:0.95rem;"><i class="fab fa-telegram-plane"></i> إشعارات الطلبات الفورية عبر تلكرام (Telegram Bot)</h4>
+            <p style="font-size:0.78rem; color:var(--clr-text-muted); margin-bottom:0.85rem;">استلم رسالة فورية على هاتفك عند وصول أي طلب جديد أو تعديل من الزبون حتى لو كانت لوحة الأدمن مغلقة.</p>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>توكن البوت (Bot Token من @BotFather)</label>
+                <input type="text" id="setTelegramToken" class="form-input" placeholder="123456789:ABCdefGHIjklMNO..." style="direction:ltr;">
+              </div>
+              <div class="form-group">
+                <label>معرف المحادثة (Chat ID من @userinfobot)</label>
+                <input type="text" id="setTelegramChatId" class="form-input" placeholder="987654321" style="direction:ltr;">
+              </div>
+            </div>
+            <button type="button" class="btn btn-outline btn-sm" onclick="testTelegramAlert()" style="margin-top:0.5rem; border-color:#60a5fa; color:#60a5fa;">
+              <i class="fas fa-paper-plane"></i> إرسال إشعار تجريبي للتلكرام
+            </button>
+          </div>
+
+          <!-- Bundle Offer Section -->
+          <div style="background:rgba(245,158,11,0.07); border:1px solid rgba(245,158,11,0.28); border-radius:var(--radius-lg); padding:1rem 1.2rem; margin-bottom:1.25rem;">
+            <h4 style="margin:0 0 0.5rem; color:var(--clr-gold); font-size:0.95rem;"><i class="fas fa-gift"></i> نظام الباقات والعروض التلقائية بالسلة</h4>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>تفعيل عرض الباقة التلقائي</label>
+                <select id="setBundleEnabled" class="form-input">
+                  <option value="true">مفعّل (تطبيق خصم لعبة مجانية تلقائياً)</option>
+                  <option value="false">معطّل</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>لعبة مجانية عند كل (عدد الألعاب بالسلة)</label>
+                <input type="number" id="setBundleEveryN" class="form-input" min="2" max="50" value="6" placeholder="مثال: 6 (يعني 5 + 1 مجاناً)">
+              </div>
+            </div>
+          </div>
+
+          <!-- Promo Code Section -->
+          <div style="background:rgba(16,185,129,0.07); border:1px solid rgba(16,185,129,0.28); border-radius:var(--radius-lg); padding:1rem 1.2rem;">
+            <h4 style="margin:0 0 0.5rem; color:#10b981; font-size:0.95rem;"><i class="fas fa-ticket-alt"></i> كود خصم المتجر (Promo Code)</h4>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>كود الخصم (اتركه فارغاً لإلغاء الكود)</label>
+                <input type="text" id="setPromoCode" class="form-input" placeholder="مثال: NEWLIFE5">
+              </div>
+              <div class="form-group">
+                <label>قيمة خصم الكود (دينار)</label>
+                <input type="number" id="setPromoDiscount" class="form-input" min="0" step="500" placeholder="5000">
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal__footer">
+        <button type="button" class="btn btn-ghost" onclick="closeSettingsModal()">إلغاء</button>
+        <button type="submit" form="settingsForm" class="btn btn-primary" style="flex:1;">
+          <i class="fas fa-save"></i> حفظ الإعدادات
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       BULK EDIT GAMES MODAL
+  ════════════════════════════════════════ -->
+  <div class="modal-overlay" id="bulkEditModal" role="dialog" aria-modal="true" onclick="handleModalClick(event,'bulkEditModal')">
+    <div class="modal">
+      <div class="modal__header">
+        <h2 class="modal__title"><i class="fas fa-layer-group" style="color:#10b981;margin-left:0.5rem;"></i>تعديل جماعي للألعاب</h2>
+        <button class="modal__close" onclick="closeBulkEditModal()"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal__body">
+        <form id="bulkEditForm" onsubmit="submitBulkEditGames(event)">
+          <div class="form-group" style="margin-bottom:0.85rem;">
+            <label>تحديد الألعاب المستهدفة حسب الهارد</label>
+            <select id="bulkTargetHardDrive" class="form-input">
+              <option value="all">جميع الهاردات (كل ألعاب المتجر)</option>
+              <option value="1">هارد 1 فقط</option>
+              <option value="2">هارد 2 فقط</option>
+              <option value="3">هارد 3 فقط</option>
+              <option value="4">هارد 4 فقط</option>
+              <option value="5">هارد 5 فقط</option>
+              <option value="6">هارد 6 فقط</option>
+              <option value="7">هارد 7 فقط</option>
+              <option value="8">هارد 8 فقط</option>
+              <option value="9">هارد 9 فقط</option>
+              <option value="10">هارد 10 فقط</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom:0.85rem;">
+            <label>تحديد الألعاب حسب التصنيف</label>
+            <select id="bulkTargetCategory" class="form-input">
+              <option value="all">جميع التصنيفات</option>
+              <option value="Action">أكشن</option>
+              <option value="Adventure">مغامرة</option>
+              <option value="Sports">رياضة</option>
+              <option value="RPG">آر بي جي</option>
+              <option value="Fighting">قتال</option>
+              <option value="Shooter">تصويب</option>
+              <option value="Racing">سباق</option>
+              <option value="Horror">رعب</option>
+              <option value="CoOp">ألعاب زوجية</option>
+            </select>
+          </div>
+          <hr style="border:none; border-top:1px solid var(--clr-border-light); margin:1rem 0;">
+          <div class="form-group" style="margin-bottom:0.85rem;">
+            <label>السعر الجديد (دينار) — اتركه فارغاً لعدم تغيير السعر</label>
+            <input type="number" id="bulkNewPrice" class="form-input" min="0" step="500" placeholder="مثال: 5000">
+          </div>
+          <div class="form-group" style="margin-bottom:0.85rem;">
+            <label>نقل إلى رقم هارد آخر</label>
+            <select id="bulkNewHardDrive" class="form-input">
+              <option value="keep">بدون تغيير رقم الهارد</option>
+              <option value="1">نقل إلى هارد 1</option>
+              <option value="2">نقل إلى هارد 2</option>
+              <option value="3">نقل إلى هارد 3</option>
+              <option value="4">نقل إلى هارد 4</option>
+              <option value="5">نقل إلى هارد 5</option>
+              <option value="6">نقل إلى هارد 6</option>
+              <option value="7">نقل إلى هارد 7</option>
+              <option value="8">نقل إلى هارد 8</option>
+              <option value="9">نقل إلى هارد 9</option>
+              <option value="10">نقل إلى هارد 10</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>حالة التوفر في المتجر</label>
+            <select id="bulkSetAvailable" class="form-input">
+              <option value="keep">بدون تغيير حالة التوفر</option>
+              <option value="true">تفعيل الكل (متوفرة للطلب)</option>
+              <option value="false">إخفاء الكل مؤقتاً</option>
+            </select>
+          </div>
+        </form>
+      </div>
+      <div class="modal__footer">
+        <button type="button" class="btn btn-ghost" onclick="closeBulkEditModal()">إلغاء</button>
+        <button type="submit" form="bulkEditForm" class="btn btn-primary" style="flex:1;">
+          <i class="fas fa-check"></i> تطبيق التعديل الجماعي
         </button>
       </div>
     </div>

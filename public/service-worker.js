@@ -1,48 +1,55 @@
-const CACHE_NAME = 'newlife-v2-cache-v1';
-const ASSETS = [
-    '/',
-    '/index.html',
-    '/admin.html',
-    '/css/main.css',
-    '/css/admin.css',
-    '/js/main.js',
-    '/js/admin.js',
-    '/manifest.json'
+const CACHE_NAME = 'newlife-pwa-v3';
+const ASSETS_TO_CACHE = [
+  '/',
+  '/index.html',
+  '/admin.html',
+  '/orders.html',
+  '/css/variables.css',
+  '/css/main.css',
+  '/css/admin.css',
+  '/js/main.js',
+  '/js/admin.js',
+  '/manifest.json',
+  '/admin-manifest.json',
+  '/icons/icon-192x192.png',
+  '/icons/icon-512x512.png',
+  '/icons/admin-icon-192x192.png',
+  '/icons/admin-icon-512x512.png'
 ];
 
 self.addEventListener('install', event => {
-    event.waitUntil(
-        caches.open(CACHE_NAME).then(cache => {
-            return cache.addAll(ASSETS);
-        })
-    );
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(cache => {
+      return cache.addAll(ASSETS_TO_CACHE).catch(err => {
+        console.log('SW cache addAll fallback:', err);
+      });
+    })
+  );
+  self.skipWaiting();
 });
 
 self.addEventListener('activate', event => {
-    event.waitUntil(
-        caches.keys().then(keys => {
-            return Promise.all(
-                keys.map(key => {
-                    if (key !== CACHE_NAME) {
-                        return caches.delete(key);
-                    }
-                })
-            );
-        })
-    );
+  event.waitUntil(
+    caches.keys().then(keys => Promise.all(
+      keys.map(key => {
+        if (key !== CACHE_NAME) return caches.delete(key);
+      })
+    ))
+  );
+  self.clients.claim();
 });
 
 self.addEventListener('fetch', event => {
-    // Only intercept GET requests
-    if (event.request.method !== 'GET') return;
+  if (event.request.method !== 'GET') return;
 
-    // Do not cache API requests
-    if (event.request.url.includes('/api/')) {
-        event.respondWith(fetch(event.request));
-        return;
-    }
+  // Never cache API calls
+  if (event.request.url.includes('/api/')) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
 
-    event.respondWith(
-        fetch(event.request).catch(() => caches.match(event.request))
-    );
+  // Network first, fallback to cache
+  event.respondWith(
+    fetch(event.request).catch(() => caches.match(event.request))
+  );
 });

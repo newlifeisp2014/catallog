@@ -1,4 +1,4 @@
-const CACHE_NAME = 'newlife-pwa-v2';
+const CACHE_NAME = 'newlife-pwa-v3';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -40,6 +40,14 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
+  if (event.request.method !== 'GET') return;
+
+  // Never cache API calls
+  if (event.request.url.includes('/api/')) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
   // Network first, fallback to cache
   event.respondWith(
     fetch(event.request).catch(() => caches.match(event.request))

@@ -94,6 +94,29 @@ async function downloadAndStoreImage(gameId, url) {
     if (!url || url.includes('placehold.co')) return null;
 
     try {
+        // إذا كانت الصورة مرفوعة مسبقاً كصورة مخصصة مؤقتة (/api/games/image/img_...)، اربطها بمعرف اللعبة مباشرة
+        if (url.startsWith('/api/games/image/')) {
+            const existingImgId = url.replace('/api/games/image/', '').trim();
+            if (existingImgId && existingImgId !== gameId) {
+                const imgCheck = await pool.query('SELECT image_data, mime_type, source_url FROM game_images WHERE id = $1', [existingImgId]);
+                if (imgCheck.rows.length > 0) {
+                    const row = imgCheck.rows[0];
+                    await saveGameImageToDB(gameId, row.image_data, row.mime_type, row.source_url);
+                    if (existingImgId.startsWith('img_')) {
+                        await pool.query('DELETE FROM game_images WHERE id = $1', [existingImgId]).catch(() => {});
+                    }
+                    return `/api/games/image/${gameId}`;
+                }
+            }
+            return url;
+        }
+
+        // إذا كانت البيانات بصيغة Data URL مباشرة
+        if (url.startsWith('data:image/')) {
+            await saveGameImageToDB(gameId, url, 'image/jpeg', '');
+            return `/api/games/image/${gameId}`;
+        }
+
         const dl = await downloadImageBuffer(url);
         if (dl && dl.buffer) {
             await saveGameImageToDB(gameId, dl.buffer, dl.contentType, url);
@@ -103,6 +126,12 @@ async function downloadAndStoreImage(gameId, url) {
         console.warn('downloadAndStoreImage error:', e.message);
     }
     return url;
+}
+
+// فحص تلقائي إذا كانت اللعبة معربة من اسمها أو ملاحظاتها
+function detectArabicGame(name = '', nameAr = '', description = '', notes = '') {
+    const text = `${name} ${nameAr} ${description} ${notes}`.toLowerCase();
+    return /(معرب|معربة|تعريب|مدبلج|مدبلجة|مترجم|مترجمة|arabic)/i.test(text);
 }
 
 // ==================== محرك التصنيف التلقائي الذكي للألعاب ====================
@@ -1032,9 +1061,11 @@ router.get('/', async (req, res) => {
             description: row.description,
             trailer: row.trailer,
             notes: row.notes,
-            available: row.available,
+            available: row.available !== false,
             hardDrive: row.hard_drive,
             isNew: Boolean(row.is_new),
+            isArabic: Boolean(row.is_arabic) || detectArabicGame(row.name, row.name_ar, row.description, row.notes),
+            platform: row.platform || 'PS4',
             createdAt: row.created_at
         }));
 
@@ -1053,15 +1084,17 @@ router.get('/', async (req, res) => {
 // Add new game (Protected) - مع جلب صورة وتصنيف تلقائي وتخزين دائم في DB
 router.post('/', verifyToken, async (req, res) => {
     try {
-        const { name, nameAr, price, size, category, image, description, trailer, notes, hardDrive, isNew } = req.body;
+        const { name, nameAr, price, size, category, image, description, trailer, notes, hardDrive, isNew, isArabic, platform, available } = req.body;
 
-        if (!name || !price || !size) {
+        if (!name || price === undefined || !size) {
             return res.status(400).json({ error: 'يرجى ملء كافة الحقول الأساسية (الاسم، السعر، الحجم)' });
         }
 
         const id = 'ps4_' + Date.now().toString().slice(-6);
         const finalNameAr = (nameAr && nameAr.trim() !== '') ? nameAr.trim() : name.trim();
         const finalIsNew = (isNew !== undefined) ? Boolean(isNew) : true;
+        const finalAvailable = (available !== undefined) ? Boolean(available) : true;
+        const finalPlatform = (platform && platform.trim() !== '') ? platform.trim() : 'PS4';
 
         let finalDescription = description || '';
         let finalTrailer = trailer || '';
@@ -1105,16 +1138,20 @@ router.post('/', verifyToken, async (req, res) => {
             finalImage = getPlaceholderImage(name, finalCategory);
         }
 
+        const finalIsArabic = (isArabic !== undefined)
+            ? Boolean(isArabic)
+            : detectArabicGame(name.trim(), finalNameAr, finalDescription, notes || '');
+
         await pool.query(
-            'INSERT INTO games (id, name, name_ar, price, size, category, image, description, trailer, notes, hard_drive, is_new) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)',
-            [id, name.trim(), finalNameAr, price, size, finalCategory, finalImage, finalDescription, finalTrailer, notes || '', hardDrive || '1', finalIsNew]
+            'INSERT INTO games (id, name, name_ar, price, size, category, image, description, trailer, notes, hard_drive, is_new, is_arabic, platform, available) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)',
+            [id, name.trim(), finalNameAr, price, size, finalCategory, finalImage, finalDescription, finalTrailer, notes || '', hardDrive || '1', finalIsNew, finalIsArabic, finalPlatform, finalAvailable]
         );
 
         res.json({
             id, name: name.trim(), nameAr: finalNameAr, price, size, category: finalCategory,
             image: finalImage, description: finalDescription,
             trailer: finalTrailer, notes, hardDrive: hardDrive || '1',
-            isNew: finalIsNew
+            isNew: finalIsNew, isArabic: finalIsArabic, platform: finalPlatform, available: finalAvailable
         });
     } catch (error) {
         console.error('Error adding game:', error);
@@ -1126,13 +1163,16 @@ router.post('/', verifyToken, async (req, res) => {
 router.put('/:id', verifyToken, async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, nameAr, price, size, category, image, description, trailer, notes, hardDrive, isNew } = req.body;
+        const { name, nameAr, price, size, category, image, description, trailer, notes, hardDrive, isNew, isArabic, platform, available } = req.body;
 
         const isNewParam = (isNew !== undefined) ? Boolean(isNew) : null;
+        const isArabicParam = (isArabic !== undefined) ? Boolean(isArabic) : null;
+        const availableParam = (available !== undefined) ? Boolean(available) : null;
+        const platformParam = (platform !== undefined && platform !== '') ? platform : null;
         let finalImage = image;
 
-        // إذا الصورة تم تحديثها برابط خارجي أو base64، احفظها في DB
-        if (finalImage && (finalImage.startsWith('http://') || finalImage.startsWith('https://') || finalImage.startsWith('data:image/'))) {
+        // إذا الصورة تم تحديثها برابط خارجي أو base64 أو صورة مخصصة، احفظها في DB
+        if (finalImage && (finalImage.startsWith('http://') || finalImage.startsWith('https://') || finalImage.startsWith('data:image/') || finalImage.startsWith('/api/games/image/img_'))) {
             try {
                 const dbImagePath = await downloadAndStoreImage(id, finalImage);
                 if (dbImagePath) finalImage = dbImagePath;
@@ -1147,11 +1187,22 @@ router.put('/:id', verifyToken, async (req, res) => {
         }
 
         await pool.query(
-            'UPDATE games SET name = $1, name_ar = $2, price = $3, size = $4, category = $5, image = $6, description = $7, trailer = $8, notes = $9, hard_drive = $10, is_new = COALESCE($11, is_new) WHERE id = $12',
-            [name, nameAr, price, size, finalCat, finalImage, description || '', trailer || '', notes || '', hardDrive || '1', isNewParam, id]
+            `UPDATE games SET 
+                name = $1, name_ar = $2, price = $3, size = $4, category = $5, 
+                image = $6, description = $7, trailer = $8, notes = $9, hard_drive = $10, 
+                is_new = COALESCE($11, is_new),
+                is_arabic = COALESCE($12, is_arabic),
+                platform = COALESCE($13, platform),
+                available = COALESCE($14, available)
+             WHERE id = $15`,
+            [name, nameAr, price, size, finalCat, finalImage, description || '', trailer || '', notes || '', hardDrive || '1', isNewParam, isArabicParam, platformParam, availableParam, id]
         );
 
-        res.json({ id, name, nameAr, price, size, category: finalCat, image: finalImage, description, trailer, notes, hardDrive: hardDrive || '1', isNew: isNewParam });
+        res.json({
+            id, name, nameAr, price, size, category: finalCat, image: finalImage,
+            description, trailer, notes, hardDrive: hardDrive || '1',
+            isNew: isNewParam, isArabic: isArabicParam, platform: platformParam || 'PS4', available: availableParam
+        });
     } catch (error) {
         console.error('Error updating game:', error);
         res.status(500).json({ error: 'Database error' });
@@ -1172,6 +1223,90 @@ router.patch('/:id/toggle-new', verifyToken, async (req, res) => {
     } catch (error) {
         console.error('Error toggling is_new status:', error);
         res.status(500).json({ error: 'Database error' });
+    }
+});
+
+// Toggle game available status (Protected)
+router.patch('/:id/toggle-available', verifyToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const current = await pool.query('SELECT available FROM games WHERE id = $1', [id]);
+        if (current.rows.length === 0) {
+            return res.status(404).json({ error: 'اللعبة غير موجودة' });
+        }
+        const newAvailable = current.rows[0].available === false ? true : false;
+        await pool.query('UPDATE games SET available = $1 WHERE id = $2', [newAvailable, id]);
+        res.json({ success: true, available: newAvailable });
+    } catch (error) {
+        console.error('Error toggling available status:', error);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
+// Toggle game is_arabic status (Protected)
+router.patch('/:id/toggle-arabic', verifyToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const current = await pool.query('SELECT is_arabic FROM games WHERE id = $1', [id]);
+        if (current.rows.length === 0) {
+            return res.status(404).json({ error: 'اللعبة غير موجودة' });
+        }
+        const newArabic = !current.rows[0].is_arabic;
+        await pool.query('UPDATE games SET is_arabic = $1 WHERE id = $2', [newArabic, id]);
+        res.json({ success: true, isArabic: newArabic });
+    } catch (error) {
+        console.error('Error toggling is_arabic status:', error);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
+// Bulk update games price / hardDrive / availability (Protected)
+router.post('/bulk-update', verifyToken, async (req, res) => {
+    try {
+        const { targetHardDrive, targetCategory, newPrice, newHardDrive, setAvailable } = req.body;
+        const conditions = [];
+        const params = [];
+        let idx = 1;
+
+        if (targetHardDrive && targetHardDrive !== 'all') {
+            conditions.push(`hard_drive = $${idx++}`);
+            params.push(targetHardDrive);
+        }
+        if (targetCategory && targetCategory !== 'all') {
+            conditions.push(`category = $${idx++}`);
+            params.push(targetCategory);
+        }
+
+        const updates = [];
+        if (newPrice !== undefined && newPrice !== '' && !isNaN(Number(newPrice))) {
+            updates.push(`price = $${idx++}`);
+            params.push(Math.max(0, Number(newPrice)));
+        }
+        if (newHardDrive && newHardDrive !== 'keep') {
+            updates.push(`hard_drive = $${idx++}`);
+            params.push(newHardDrive);
+        }
+        if (setAvailable !== undefined && setAvailable !== 'keep') {
+            updates.push(`available = $${idx++}`);
+            params.push(setAvailable === 'true' || setAvailable === true);
+        }
+
+        if (updates.length === 0) {
+            return res.status(400).json({ error: 'لم يتم تحديد أي تعديل لتطبيقه' });
+        }
+
+        const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+        const query = `UPDATE games SET ${updates.join(', ')} ${whereClause}`;
+        const result = await pool.query(query, params);
+
+        res.json({
+            success: true,
+            updatedCount: result.rowCount,
+            message: `تم تحديث ${result.rowCount} لعبة بنجاح!`
+        });
+    } catch (error) {
+        console.error('Bulk update error:', error);
+        res.status(500).json({ error: 'حدث خطأ أثناء التعديل الجماعي' });
     }
 });
 
@@ -1382,8 +1517,24 @@ router.post('/sync-images-to-db', verifyToken, async (req, res) => {
 
             let saved = false;
 
+            // 0. إذا كانت الصورة مرفوعة مسبقاً بمعرف مؤقت (/api/games/image/img_...)
+            if (game.image && game.image.startsWith('/api/games/image/')) {
+                const tempId = game.image.replace('/api/games/image/', '').trim();
+                const tempCheck = await pool.query('SELECT image_data, mime_type, source_url FROM game_images WHERE id = $1', [tempId]);
+                if (tempCheck.rows.length > 0) {
+                    const row = tempCheck.rows[0];
+                    await saveGameImageToDB(game.id, row.image_data, row.mime_type, row.source_url);
+                    await pool.query('UPDATE games SET image = $1 WHERE id = $2', [`/api/games/image/${game.id}`, game.id]);
+                    if (tempId.startsWith('img_') && tempId !== game.id) {
+                        await pool.query('DELETE FROM game_images WHERE id = $1', [tempId]).catch(() => {});
+                    }
+                    saved = true;
+                    storedCount++;
+                }
+            }
+
             // 1. إذا كان رابطاً خارجياً
-            if (game.image && (game.image.startsWith('http://') || game.image.startsWith('https://')) && !game.image.includes('placehold.co')) {
+            if (!saved && game.image && (game.image.startsWith('http://') || game.image.startsWith('https://')) && !game.image.includes('placehold.co')) {
                 const dl = await downloadImageBuffer(game.image);
                 if (dl && dl.buffer) {
                     await saveGameImageToDB(game.id, dl.buffer, dl.contentType, game.image);
@@ -1422,6 +1573,7 @@ router.post('/sync-images-to-db', verifyToken, async (req, res) => {
         res.json({
             success: true,
             message: `تم حفظ وتأمين صور ${storedCount + fetchedCount} لعبة داخل قاعدة البيانات بنجاح! الصور الآن محفوظة للأبد.`,
+            savedCount: storedCount + fetchedCount,
             storedCount,
             fetchedCount,
             total: games.length

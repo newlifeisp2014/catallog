@@ -17,11 +17,19 @@ let allGames          = [];
 let cart              = JSON.parse(localStorage.getItem('nl_cart') || '[]');
 let searchQuery       = '';
 let activeCategory    = 'all';
+let activePlatform    = 'all';
 let currentSort       = 'newest';
 let featuredGames     = [];
 let currentHeroIndex  = 0;
 let heroInterval      = null;
 let currentRenderLimit = 36;
+
+// Store Offer & Customer Loyalty State
+let storeOfferConfig  = { bundleEnabled: true, bundleEveryN: 6, hasPromoCode: false };
+let customerPoints    = 0;
+let appliedPromoCode  = '';
+let appliedPromoDisc  = 0;
+let phoneLookupTimer  = null;
 
 // ── Category Dictionary ───────────────────────────────────────
 const catLabel = {
@@ -54,9 +62,29 @@ const trailerBody       = document.getElementById('trailerModalBody');
 // ── Init ──────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   updateCartBadge();
+  loadStoreOfferConfig();
   fetchGames();
   setupListeners();
+
+  // استرجاع رقم هاتف الزبون المحفوظ للتعرف على نقاطه تلقائياً
+  const savedPhone = localStorage.getItem('customer_phone');
+  const phoneInput = document.getElementById('customerPhone');
+  if (savedPhone && phoneInput) {
+    phoneInput.value = savedPhone;
+    handleCustomerPhoneLookup(savedPhone);
+  }
 });
+
+async function loadStoreOfferConfig() {
+  try {
+    const res = await fetch('/api/orders/settings/public');
+    if (res.ok) {
+      storeOfferConfig = await res.json();
+      const promoBox = document.getElementById('promoCodeContainer');
+      if (promoBox) promoBox.style.display = storeOfferConfig.hasPromoCode ? 'block' : 'none';
+    }
+  } catch (e) {}
+}
 
 // ── Sorting Helpers ───────────────────────────────────────────
 function getGameDisplayName(game) {
@@ -115,6 +143,13 @@ async function fetchGames() {
 
     // عرض شبكة الألعاب
     renderGames();
+
+    // فتح تفاصيل لعبة محددة إذا كان هناك رابط مشاركة مباشر (?game=id)
+    const params = new URLSearchParams(window.location.search);
+    const sharedGameId = params.get('game');
+    if (sharedGameId && allGames.some(g => g.id === sharedGameId)) {
+      setTimeout(() => openGameDetailModal(sharedGameId), 300);
+    }
   } catch (e) {
     if (gamesGrid) {
       gamesGrid.innerHTML = `
@@ -131,15 +166,16 @@ async function fetchGames() {
 function setupFeaturedGames() {
   if (!allGames || allGames.length === 0) return;
 
+  const visibleGames = allGames.filter(g => g.available !== false);
   // تفضيل الألعاب الجديدة والمميزة التي تمتلك صور ووصف أو مقطع
-  const withImages = allGames.filter(g => g.image && !g.image.includes('placehold.co'));
+  const withImages = visibleGames.filter(g => g.image && !g.image.includes('placehold.co'));
   const newGames   = withImages.filter(g => g.isNew);
   const others     = withImages.filter(g => !g.isNew);
 
   featuredGames = [...newGames, ...others].slice(0, 5);
 
   if (featuredGames.length < 5) {
-    const remaining = allGames.filter(g => !featuredGames.some(f => f.id === g.id));
+    const remaining = visibleGames.filter(g => !featuredGames.some(f => f.id === g.id));
     featuredGames = [...featuredGames, ...remaining].slice(0, 5);
   }
 }
@@ -389,22 +425,30 @@ function handleTrailerOverlayClick(e) {
 function renderCategoryPills() {
   if (!filterTabs) return;
 
-  const totalCount = allGames.length;
-  const newCount   = allGames.filter(g => g.isNew).length;
+  const availableGames = allGames.filter(g => {
+    if (g.available === false) return false;
+    if (activePlatform !== 'all' && (g.platform || 'PS4').toUpperCase() !== activePlatform) return false;
+    return true;
+  });
+
+  const totalCount  = availableGames.length;
+  const newCount    = availableGames.filter(g => g.isNew).length;
+  const arabicCount = availableGames.filter(g => g.isArabic).length;
 
   // الفئات المدعومة
   const categoriesList = [
     { key: 'all', label: 'الكل', count: totalCount },
     { key: 'isNew', label: 'أحدث الإضافات 🔥', count: newCount },
-    { key: 'Action', label: 'حركة وأكشن', count: allGames.filter(g => g.category === 'Action').length },
-    { key: 'Adventure', label: 'مغامرة', count: allGames.filter(g => g.category === 'Adventure').length },
-    { key: 'CoOp', label: 'ألعاب زوجية', count: allGames.filter(g => g.category === 'CoOp').length },
-    { key: 'Shooter', label: 'تصويب', count: allGames.filter(g => g.category === 'Shooter').length },
-    { key: 'RPG', label: 'آر بي جي', count: allGames.filter(g => g.category === 'RPG').length },
-    { key: 'Horror', label: 'رعب', count: allGames.filter(g => g.category === 'Horror').length },
-    { key: 'Fighting', label: 'قتال', count: allGames.filter(g => g.category === 'Fighting').length },
-    { key: 'Racing', label: 'سباق', count: allGames.filter(g => g.category === 'Racing').length },
-    { key: 'Sports', label: 'رياضة', count: allGames.filter(g => g.category === 'Sports').length }
+    { key: 'isArabic', label: 'ألعاب معربة 🇸🇦', count: arabicCount },
+    { key: 'Action', label: 'حركة وأكشن', count: availableGames.filter(g => g.category === 'Action').length },
+    { key: 'Adventure', label: 'مغامرة', count: availableGames.filter(g => g.category === 'Adventure').length },
+    { key: 'CoOp', label: 'ألعاب زوجية', count: availableGames.filter(g => g.category === 'CoOp').length },
+    { key: 'Shooter', label: 'تصويب', count: availableGames.filter(g => g.category === 'Shooter').length },
+    { key: 'RPG', label: 'آر بي جي', count: availableGames.filter(g => g.category === 'RPG').length },
+    { key: 'Horror', label: 'رعب', count: availableGames.filter(g => g.category === 'Horror').length },
+    { key: 'Fighting', label: 'قتال', count: availableGames.filter(g => g.category === 'Fighting').length },
+    { key: 'Racing', label: 'سباق', count: availableGames.filter(g => g.category === 'Racing').length },
+    { key: 'Sports', label: 'رياضة', count: availableGames.filter(g => g.category === 'Sports').length }
   ];
 
   filterTabs.innerHTML = categoriesList
@@ -427,6 +471,17 @@ function selectCategory(categoryKey, btnEl) {
     filterTabs.querySelectorAll('.cat-pill').forEach(b => b.classList.remove('active'));
     if (btnEl) btnEl.classList.add('active');
   }
+  renderGames(true);
+}
+
+function selectPlatform(platformKey, btnEl) {
+  activePlatform = platformKey;
+  const container = document.getElementById('platformTabs');
+  if (container) {
+    container.querySelectorAll('.cat-pill').forEach(b => b.classList.remove('active'));
+    if (btnEl) btnEl.classList.add('active');
+  }
+  renderCategoryPills();
   renderGames(true);
 }
 
@@ -453,17 +508,32 @@ function renderGames(resetLimit = true) {
   const q = searchQuery.toLowerCase();
 
   const filtered = allGames.filter(g => {
+    // فلتر التوفر
+    if (g.available === false) return false;
+
+    // فلتر المنصة (PS4 / PS5)
+    if (activePlatform !== 'all' && (g.platform || 'PS4').toUpperCase() !== activePlatform) {
+      return false;
+    }
+
     // فلتر البحث
     const matchSearch = !q ||
       g.name.toLowerCase().includes(q) ||
       (g.nameAr || '').toLowerCase().includes(q) ||
-      (g.category || '').toLowerCase().includes(q);
+      (g.category || '').toLowerCase().includes(q) ||
+      (g.isArabic && ('معرب معربة عربي'.includes(q)));
 
     // فلتر التصنيف
-    const matchCat = activeCategory === 'all' ||
-      (activeCategory === 'isNew' ? Boolean(g.isNew) : g.category === activeCategory);
+    let matchCat = true;
+    if (activeCategory === 'isNew') {
+      matchCat = Boolean(g.isNew);
+    } else if (activeCategory === 'isArabic') {
+      matchCat = Boolean(g.isArabic);
+    } else if (activeCategory !== 'all') {
+      matchCat = g.category === activeCategory;
+    }
 
-    return matchSearch && matchCat && g.available !== false;
+    return matchSearch && matchCat;
   });
 
   // تحديث عداد الألعاب
@@ -534,6 +604,8 @@ function loadMoreGames() {
 function buildGameCard(game, inCart, index) {
   const card = document.createElement('div');
   const isNew = Boolean(game.isNew);
+  const isArabic = Boolean(game.isArabic);
+  const platform = (game.platform || 'PS4').toUpperCase();
   card.className = `game-card ${inCart ? 'in-cart' : ''} ${isNew ? 'is-new' : ''}`;
   card.setAttribute('role', 'listitem');
   card.setAttribute('data-id', game.id);
@@ -555,9 +627,14 @@ function buildGameCard(game, inCart, index) {
           <span>جديد</span>
         </div>
       ` : ''}
+      ${isArabic ? `
+        <div style="position:absolute; top:${isNew ? '2.4rem' : '0.6rem'}; right:0.6rem; z-index:3; background:linear-gradient(135deg, #10b981, #059669); color:#fff; font-size:0.68rem; font-weight:800; padding:0.18rem 0.5rem; border-radius:var(--radius-full); box-shadow:0 4px 12px rgba(16,185,129,0.4); display:inline-flex; align-items:center; gap:3px;">
+          <i class="fas fa-language"></i> معربة
+        </div>
+      ` : ''}
       <div class="game-card__badge">
         <i class="fas fa-hdd" style="font-size:0.65rem;margin-left:3px;"></i>
-        هارد ${game.hardDrive || '1'}
+        هارد ${game.hardDrive || '1'}${platform === 'PS5' ? ' • PS5' : ''}
       </div>
       <div class="game-card__in-cart" title="في السلة">
         <i class="fas fa-check"></i>
@@ -714,8 +791,129 @@ function formatTotalSize(games) {
   return `${Number.isInteger(total) ? total : total.toFixed(1)} GB`;
 }
 
+// ── Interactive HDD Capacity Meter in Cart ────────────────────
+function updateCartHddMeter() {
+  const hddBox = document.getElementById('cartHddCapacityBox');
+  if (!hddBox) return;
+
+  if (!cart || cart.length === 0) {
+    hddBox.style.display = 'none';
+    return;
+  }
+
+  const totalGB = cart.reduce((s, g) => s + parseSizeToGB(g.size || g.gameSize || ''), 0);
+  if (totalGB <= 0) {
+    hddBox.style.display = 'none';
+    return;
+  }
+
+  hddBox.style.display = 'block';
+  const selectEl = document.getElementById('customerHddSelect');
+  const usableGB = selectEl ? (parseFloat(selectEl.value) || 930) : 930;
+
+  const fillPct = Math.min(100, Math.round((totalGB / usableGB) * 100));
+  const isOver = totalGB > usableGB;
+  const remainingGB = Math.max(0, usableGB - totalGB);
+
+  const fillBar = document.getElementById('cartHddFillBar');
+  const statusText = document.getElementById('cartHddStatusText');
+
+  if (fillBar) {
+    fillBar.style.width = `${fillPct}%`;
+    fillBar.style.background = isOver
+      ? 'var(--clr-danger)'
+      : (fillPct >= 85 ? 'var(--clr-gold)' : 'linear-gradient(90deg, #14b8a6, #7c3aed)');
+  }
+
+  if (statusText) {
+    statusText.innerHTML = `
+      <span style="color:#fff; font-weight:700;">المستخدم: ${totalGB.toFixed(1)} GB (${fillPct}%)</span>
+      <span style="color:${isOver ? 'var(--clr-danger)' : 'var(--clr-teal)'}; font-weight:700;">
+        ${isOver ? `⚠️ يتجاوز السعة بـ ${(totalGB - usableGB).toFixed(1)} GB!` : `متبقي: ~${remainingGB.toFixed(0)} GB`}
+      </span>
+    `;
+  }
+}
+
+// ── Live Customer Recognition & Loyalty Points Lookup ─────────
+function handleCustomerPhoneLookup(val) {
+  if (phoneLookupTimer) clearTimeout(phoneLookupTimer);
+  const cleanPhone = (val || '').trim();
+  const loyaltyBox = document.getElementById('loyaltyPointsBox');
+
+  if (cleanPhone.length < 10) {
+    customerPoints = 0;
+    if (loyaltyBox) loyaltyBox.style.display = 'none';
+    renderCartItems();
+    return;
+  }
+
+  phoneLookupTimer = setTimeout(async () => {
+    try {
+      const res = await fetch(`/api/customers/${encodeURIComponent(cleanPhone)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+
+      if (data && data.exists) {
+        const nameInput = document.getElementById('customerName');
+        if (nameInput && !nameInput.value.trim() && data.name && data.name !== 'زبون جديد') {
+          nameInput.value = data.name;
+        }
+        customerPoints = parseInt(data.points) || 0;
+        if (customerPoints > 0 && loyaltyBox) {
+          loyaltyBox.style.display = 'block';
+          const textEl = document.getElementById('loyaltyPointsText');
+          const discEl = document.getElementById('loyaltyDiscountBadge');
+          if (textEl) textEl.innerHTML = `<i class="fas fa-gift"></i> أهلاً ${data.name || ''}! استخدم نقاطي (${customerPoints} نقطة)`;
+          if (discEl) discEl.textContent = `خصم ${(customerPoints * 100).toLocaleString()} د.ع`;
+        } else if (loyaltyBox) {
+          loyaltyBox.style.display = 'none';
+        }
+      } else {
+        customerPoints = 0;
+        if (loyaltyBox) loyaltyBox.style.display = 'none';
+      }
+      renderCartItems();
+    } catch (e) {}
+  }, 350);
+}
+
+// ── Apply Promo Code ──────────────────────────────────────────
+async function applyPromoCode() {
+  const input = document.getElementById('promoCodeInput');
+  const code = input ? input.value.trim() : '';
+  if (!code) {
+    showToast('يرجى كتابة كود الخصم أولاً', 'info');
+    return;
+  }
+  try {
+    const res = await fetch('/api/orders/settings/verify-promo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code })
+    });
+    const data = await res.json();
+    if (res.ok && data.valid) {
+      appliedPromoCode = data.code;
+      appliedPromoDisc = parseInt(data.discount) || 0;
+      showToast(`🎉 تم تفعيل كود الخصم (${appliedPromoDisc.toLocaleString()} د.ع)!`);
+      renderCartItems();
+    } else {
+      appliedPromoCode = '';
+      appliedPromoDisc = 0;
+      showToast(data.message || 'كود الخصم غير صالح', 'error');
+      renderCartItems();
+    }
+  } catch (e) {
+    showToast('تعذر التحقق من الكود', 'error');
+  }
+}
+
 function renderCartItems() {
   if (!cartItems) return;
+
+  const hddBox = document.getElementById('cartHddCapacityBox');
+  const bundleBanner = document.getElementById('cartBundleBanner');
 
   if (cart.length === 0) {
     cartItems.innerHTML = `
@@ -725,6 +923,8 @@ function renderCartItems() {
         <p style="font-size:0.85rem; color:var(--clr-text-muted); margin-top:0.3rem;">تصفح الكتالوج وأضف الألعاب التي تريدها</p>
       </div>`;
     if (cartTotal) cartTotal.textContent = '0 دينار';
+    if (hddBox) hddBox.style.display = 'none';
+    if (bundleBanner) bundleBanner.style.display = 'none';
     const sizeEl = document.getElementById('cartSizeTotal');
     if (sizeEl) sizeEl.style.display = 'none';
     return;
@@ -742,6 +942,7 @@ function renderCartItems() {
         <div class="cart-item__name">${item.nameAr || item.name}</div>
         <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
           <div class="cart-item__price">${Number(item.price).toLocaleString()} دينار</div>
+          <span style="font-size:0.71rem;background:rgba(255,255,255,0.06);color:var(--clr-text-muted);border-radius:4px;padding:0.1rem 0.4rem;">هارد ${item.hardDrive || '1'}</span>
           ${item.size ? `<span style="font-size:0.73rem;background:rgba(124,58,237,0.15);color:var(--clr-primary-light);border-radius:4px;padding:0.1rem 0.4rem;font-weight:600;"><i class="fas fa-hdd" style="font-size:0.65rem;margin-left:2px;"></i>${item.size}</span>` : ''}
         </div>
       </div>
@@ -751,29 +952,54 @@ function renderCartItems() {
     </div>
   `).join('');
 
-  const total = cart.reduce((s, g) => s + Number(g.price), 0);
-  if (cartTotal) cartTotal.textContent = `${total.toLocaleString()} دينار`;
+  // تحديث حاسبة سعة الهارد
+  updateCartHddMeter();
 
-  // عرض إجمالي الحجم
-  const totalSize = formatTotalSize(cart);
-  let sizeEl = document.getElementById('cartSizeTotal');
-  if (!sizeEl) {
-    sizeEl = document.createElement('div');
-    sizeEl.id = 'cartSizeTotal';
-    sizeEl.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-top:0.4rem;padding-top:0.4rem;border-top:1px dashed rgba(124,58,237,0.2);';
-    const totalEl = cartTotal ? cartTotal.closest('.cart-total') : null;
-    if (totalEl && totalEl.parentNode) {
-      totalEl.parentNode.insertBefore(sizeEl, totalEl.nextSibling);
+  const subtotal = cart.reduce((s, g) => s + Number(g.price), 0);
+
+  // حساب عرض الباقة التلقائي
+  let bundleDiscount = 0;
+  const everyN = parseInt(storeOfferConfig.bundleEveryN) || 6;
+  if (storeOfferConfig.bundleEnabled && everyN >= 2) {
+    const freeCount = Math.floor(cart.length / everyN);
+    const rem = cart.length % everyN;
+    if (freeCount > 0) {
+      const sortedPrices = cart.map(g => Number(g.price) || 0).sort((a, b) => a - b);
+      for (let i = 0; i < freeCount; i++) bundleDiscount += sortedPrices[i] || 0;
     }
+
+    if (bundleBanner) {
+      bundleBanner.style.display = 'block';
+      if (freeCount > 0) {
+        bundleBanner.innerHTML = `<i class="fas fa-gift" style="color:var(--clr-gold);margin-left:4px;"></i> <strong>عرض الباقة مفعّل!</strong> حصلت على <strong>${freeCount} لعبة مجاناً</strong> (خصم ${bundleDiscount.toLocaleString()} د.ع) 🎉`;
+      } else if (everyN - rem <= 2) {
+        bundleBanner.innerHTML = `<i class="fas fa-fire" style="color:var(--clr-gold);margin-left:4px;"></i> <strong>عرض خاص:</strong> أضف <strong>${everyN - rem} لعبة أخرى</strong> واحصل على لعبة مجاناً! 🎁`;
+      } else {
+        bundleBanner.innerHTML = `<i class="fas fa-tags" style="color:var(--clr-primary-light);margin-left:4px;"></i> عرض المتجر: كل <strong>${everyN} ألعاب</strong> تحصل على لعبة مجاناً (${cart.length}/${everyN})`;
+      }
+    }
+  } else if (bundleBanner) {
+    bundleBanner.style.display = 'none';
   }
-  if (totalSize) {
-    sizeEl.style.display = 'flex';
-    sizeEl.innerHTML = `
-      <span style="font-size:0.82rem;color:var(--clr-text-muted);"><i class="fas fa-hdd" style="margin-left:4px;color:var(--clr-primary-light);"></i>إجمالي الحجم</span>
-      <span style="font-size:0.88rem;font-weight:700;color:var(--clr-primary-light);">${totalSize}</span>
-    `;
-  } else {
-    sizeEl.style.display = 'none';
+
+  // حساب خصم نقاط الولاء
+  const usePointsEl = document.getElementById('useLoyaltyPointsCheckbox');
+  const usePoints = Boolean(usePointsEl && usePointsEl.checked && customerPoints > 0);
+  const afterPromos = Math.max(0, subtotal - bundleDiscount - appliedPromoDisc);
+  const pointsDiscount = usePoints ? Math.min(afterPromos, customerPoints * 100) : 0;
+
+  const totalDiscount = Math.min(subtotal, bundleDiscount + appliedPromoDisc + pointsDiscount);
+  const finalPrice = Math.max(0, subtotal - totalDiscount);
+
+  if (cartTotal) {
+    if (totalDiscount > 0) {
+      cartTotal.innerHTML = `
+        <span style="font-size:0.78rem; color:var(--clr-text-muted); text-decoration:line-through; margin-left:6px;">${subtotal.toLocaleString()}</span>
+        <span>${finalPrice.toLocaleString()} دينار</span>
+      `;
+    } else {
+      cartTotal.textContent = `${subtotal.toLocaleString()} دينار`;
+    }
   }
 }
 
@@ -784,6 +1010,10 @@ async function submitOrder(e) {
 
   const name  = document.getElementById('customerName').value.trim();
   const phone = document.getElementById('customerPhone').value.trim();
+  const notes = document.getElementById('customerNotes') ? document.getElementById('customerNotes').value.trim() : '';
+  const usePointsEl = document.getElementById('useLoyaltyPointsCheckbox');
+  const usePoints = Boolean(usePointsEl && usePointsEl.checked && customerPoints > 0);
+
   if (!name || !phone) { showToast('يرجى إدخال الاسم ورقم الهاتف', 'error'); return; }
 
   const total = cart.reduce((s, g) => s + Number(g.price), 0);
@@ -791,7 +1021,9 @@ async function submitOrder(e) {
     customer_name:    name,
     customer_phone:   phone,
     customer_address: '',
-    notes:            '',
+    notes:            notes,
+    use_points:       usePoints,
+    promo_code:       appliedPromoCode || '',
     games: cart.map(g => ({
       id:        g.id,
       name:      g.name,
@@ -816,8 +1048,11 @@ async function submitOrder(e) {
     });
 
     if (res.ok) {
+      const resData = await res.json().catch(() => ({}));
       localStorage.setItem('customer_phone', phone);
       cart = [];
+      appliedPromoCode = '';
+      appliedPromoDisc = 0;
       saveCart();
       updateCartBadge();
       document.querySelectorAll('.game-card.in-cart').forEach(c => {
@@ -827,7 +1062,9 @@ async function submitOrder(e) {
       });
       closeCart();
       document.getElementById('checkoutForm').reset();
-      showToast('تم إرسال طلبك بنجاح! شكراً لك 🎮');
+      document.getElementById('customerPhone').value = phone;
+      handleCustomerPhoneLookup(phone);
+      showToast(`تم إرسال طلبك #${resData.order_id || ''} بنجاح! شكراً لك 🎮`);
     } else {
       const err = await res.json().catch(() => ({}));
       showToast(err.error || 'حدث خطأ أثناء إرسال الطلب', 'error');
@@ -837,6 +1074,24 @@ async function submitOrder(e) {
   } finally {
     btn.disabled = false;
     btn.innerHTML = orig;
+  }
+}
+
+// ── Share Game Link ───────────────────────────────────────────
+function shareGameLink(gameId) {
+  const game = allGames.find(g => g.id === gameId);
+  if (!game) return;
+  const shareUrl = `${window.location.origin}/?game=${encodeURIComponent(gameId)}`;
+  if (navigator.share) {
+    navigator.share({
+      title: `${game.nameAr || game.name} — NewLife`,
+      text: `شاهد لعبة ${game.nameAr || game.name} في متجر NewLife للألعاب 🎮`,
+      url: shareUrl
+    }).catch(() => {});
+  } else if (navigator.clipboard) {
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      showToast('تم نسخ رابط اللعبة بنجاح! 🔗');
+    });
   }
 }
 
@@ -874,6 +1129,8 @@ function openGameDetailModal(gameId) {
   }
 
   const isNew = Boolean(game.isNew);
+  const isArabic = Boolean(game.isArabic);
+  const platform = (game.platform || 'PS4').toUpperCase();
 
   body.innerHTML = `
     ${isNew ? `
@@ -894,11 +1151,18 @@ function openGameDetailModal(gameId) {
         onerror="this.src='https://placehold.co/400x600/110e20/7c3aed?text=🎮'"
       >
       <div style="flex:1; min-width:200px; display:flex; flex-direction:column; gap:0.5rem;">
-        <h3 style="font-size:1.3rem; font-weight:900; color:#fff;">${game.nameAr || game.name}</h3>
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.5rem;">
+          <h3 style="font-size:1.3rem; font-weight:900; color:#fff;">${game.nameAr || game.name}</h3>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="shareGameLink('${game.id}')" title="مشاركة رابط اللعبة" style="padding:0.3rem 0.55rem;">
+            <i class="fas fa-share-nodes"></i>
+          </button>
+        </div>
         <div style="font-size:0.9rem; color:var(--clr-text-muted); font-family:var(--font-en);">${game.name}</div>
         
         <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.35rem;">
           ${isNew ? `<span class="badge" style="background:var(--grad-amber); color:#07050f; font-weight:800; font-size:0.75rem;"><i class="fas fa-fire" style="margin-left:3px;"></i>جديد</span>` : ''}
+          ${isArabic ? `<span class="badge" style="background:rgba(16,185,129,0.18); color:#10b981; border:1px solid rgba(16,185,129,0.35); font-weight:800; font-size:0.75rem;"><i class="fas fa-language" style="margin-left:3px;"></i>معربة 🇸🇦</span>` : ''}
+          <span class="badge" style="background:rgba(59,130,246,0.15); color:#60a5fa; border:1px solid rgba(59,130,246,0.3); font-size:0.75rem;"><i class="fab fa-playstation" style="margin-left:3px;"></i>${platform}</span>
           <span class="badge badge-pending" style="font-size:0.75rem;"><i class="fas fa-tag" style="margin-left:3px;"></i>${catLabel[game.category] || game.category}</span>
           <span class="badge badge-confirmed" style="font-size:0.75rem;"><i class="fas fa-hdd" style="margin-left:3px;"></i>هارد ${game.hardDrive || '1'}</span>
           <span class="badge badge-delivered" style="font-size:0.75rem;"><i class="fas fa-database" style="margin-left:3px;"></i>${game.size || ''}</span>

@@ -403,10 +403,21 @@
       container.innerHTML = `<div class="state-view"><div class="spinner" style="margin:auto;"></div></div>`;
 
       try {
-        const res = await fetch('/api/orders?phone=' + encodeURIComponent(phone));
+        localStorage.setItem('customer_phone', phone);
+        const [res, custRes] = await Promise.all([
+          fetch('/api/orders?phone=' + encodeURIComponent(phone)),
+          fetch('/api/customers/' + encodeURIComponent(phone)).catch(() => null)
+        ]);
         if (!res.ok) throw new Error();
         const data = await res.json();
         const orders = data.data || [];
+        let custPoints = 0;
+        let custProfileName = '';
+        if (custRes && custRes.ok) {
+          const cData = await custRes.json().catch(() => ({}));
+          custPoints = parseInt(cData.points) || 0;
+          custProfileName = cData.name || '';
+        }
 
         if (orders.length === 0) {
           container.innerHTML = `
@@ -418,15 +429,40 @@
           return;
         }
 
-        container.innerHTML = orders.map((order, idx) => {
+        const loyaltyBannerHtml = custPoints > 0 ? `
+          <div style="background:linear-gradient(135deg, rgba(245,158,11,0.14), rgba(124,58,237,0.14)); border:1px solid rgba(245,158,11,0.35); border-radius:var(--radius-lg); padding:0.9rem 1.2rem; margin-bottom:1rem; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.5rem;">
+            <div style="display:flex; align-items:center; gap:0.65rem;">
+              <span style="width:36px; height:36px; border-radius:10px; background:var(--grad-gold); color:#07050f; display:flex; align-items:center; justify-content:center; font-size:1rem;"><i class="fas fa-gift"></i></span>
+              <div>
+                <div style="font-weight:800; font-size:0.92rem; color:#fff;">رصيد نقاط الولاء${custProfileName ? ` — ${custProfileName}` : ''}</div>
+                <div style="font-size:0.78rem; color:var(--clr-text-muted);">يمكنك استخدام نقاطك كخصم مباشر في طلبك القادم من السلة</div>
+              </div>
+            </div>
+            <div style="text-align:left;">
+              <span style="font-size:1.1rem; font-weight:900; color:var(--clr-gold);">${custPoints} نقطة</span>
+              <div style="font-size:0.74rem; color:var(--clr-success); font-weight:700;">تساوي خصم ${(custPoints * 100).toLocaleString()} د.ع</div>
+            </div>
+          </div>
+        ` : '';
+
+        container.innerHTML = loyaltyBannerHtml + orders.map((order, idx) => {
           const orderId   = order.orderId || order.order_id || order.id;
           const custName  = order.customerName || order.customer_name || 'زبون';
           const total     = parseFloat(order.totalPrice || 0);
+          const discount  = parseFloat(order.discount || 0);
+          const finalTotal = Math.max(0, total - discount);
           const status    = order.status || 'pending';
           const s         = STATUS_MAP[status] || STATUS_MAP.pending;
           const dateObj   = new Date(order.createdAt || order.created_at || order.date);
           const dateStr   = isNaN(dateObj.getTime()) ? 'اليوم' : dateObj.toLocaleDateString('ar-IQ', { year:'numeric', month:'long', day:'numeric' });
           const isPending = status === 'pending';
+
+          const completedGames = order.completedGames || order.completed_games || [];
+          const cancelledGames = order.cancelledGames || order.cancelled_games || [];
+          const totalGamesCount = (order.games || []).length;
+          const validGamesCount = Math.max(1, totalGamesCount - cancelledGames.length);
+          const doneCount = (order.games || []).filter(g => completedGames.includes(g.id || g.name || g.nameAr)).length;
+          const progressPct = status === 'delivered' ? 100 : (totalGamesCount > 0 ? Math.min(100, Math.round((doneCount / validGamesCount) * 100)) : 0);
 
           return `<div class="order-card" style="animation-delay:${idx*0.07}s">
             <div class="order-card__header">
@@ -447,10 +483,29 @@
 
             <div class="order-card__body">
               ${buildTimeline(status)}
+              ${(status !== 'cancelled' && (doneCount > 0 || status === 'delivered')) ? `
+                <div style="margin:0.5rem 0 0.85rem; background:rgba(16,185,129,0.07); border:1px solid rgba(16,185,129,0.22); border-radius:var(--radius-sm); padding:0.5rem 0.75rem;">
+                  <div style="display:flex; justify-content:space-between; font-size:0.78rem; margin-bottom:0.3rem;">
+                    <span style="color:var(--clr-text-muted);"><i class="fas fa-compact-disc fa-spin" style="margin-left:4px; color:var(--clr-success);"></i>نسبة إنجاز وتنصيب الألعاب</span>
+                    <strong style="color:var(--clr-success);">${status === 'delivered' ? totalGamesCount : doneCount} من ${validGamesCount} (${progressPct}%)</strong>
+                  </div>
+                  <div style="width:100%; height:6px; background:rgba(255,255,255,0.08); border-radius:4px; overflow:hidden;">
+                    <div style="width:${progressPct}%; height:100%; background:linear-gradient(90deg, #10b981, #f59e0b); transition:width 0.4s ease;"></div>
+                  </div>
+                </div>
+              ` : ''}
               <ul class="order-games-list">
-                ${(order.games||[]).map(g =>
-                  `<li><strong>${g.name_ar||g.nameAr||g.name}</strong> — هارد ${g.hardDrive||'1'}${g.size ? ` <span style="font-size:0.78rem;background:rgba(124,58,237,0.15);color:var(--clr-primary-light);border-radius:3px;padding:0.05rem 0.35rem;font-weight:600;margin-right:4px;"><i class="fas fa-hdd" style="font-size:0.6rem;margin-left:2px;"></i>${g.size}</span>` : ''}</li>`
-                ).join('')}
+                ${(order.games||[]).map(g => {
+                  const gId = g.id || g.name || g.nameAr;
+                  const isDone = status === 'delivered' || completedGames.includes(gId);
+                  const cancelObj = cancelledGames.find(x => x.id === gId);
+                  return `<li style="${cancelObj ? 'text-decoration:line-through;opacity:0.6;' : ''}">
+                    <strong>${g.name_ar||g.nameAr||g.name}</strong> — هارد ${g.hardDrive||g.hard_drive||'1'}
+                    ${g.size ? ` <span style="font-size:0.78rem;background:rgba(124,58,237,0.15);color:var(--clr-primary-light);border-radius:3px;padding:0.05rem 0.35rem;font-weight:600;margin-right:4px;"><i class="fas fa-hdd" style="font-size:0.6rem;margin-left:2px;"></i>${g.size}</span>` : ''}
+                    ${isDone && !cancelObj ? `<span style="font-size:0.72rem;color:var(--clr-success);margin-right:auto;font-weight:700;"><i class="fas fa-check-circle"></i> جاهزة</span>` : ''}
+                    ${cancelObj ? `<span style="font-size:0.72rem;color:var(--clr-danger);margin-right:auto;">ملغاة (${cancelObj.reason})</span>` : ''}
+                  </li>`;
+                }).join('')}
               </ul>
               ${(() => {
                 const totalSize = formatTotalSize(order.games||[]);
@@ -464,8 +519,10 @@
 
             <div class="order-card__footer">
               <div class="order-total">
-                <span>المجموع</span>
-                ${total.toLocaleString()} دينار
+                <span>المجموع المطلوب</span>
+                ${discount > 0 ? `<small style="text-decoration:line-through;color:var(--clr-text-muted);font-size:0.75rem;margin-left:4px;">${total.toLocaleString()}</small>` : ''}
+                ${finalTotal.toLocaleString()} دينار
+                ${discount > 0 ? `<span style="color:var(--clr-success);font-size:0.72rem;font-weight:700;">شامل خصم ${discount.toLocaleString()} د.ع 🎁</span>` : ''}
               </div>
               <div style="display:flex;gap:0.4rem;align-items:center;">
                 ${isPending ? `
@@ -513,8 +570,13 @@
     ══════════════════════════════════════════ */
     async function cancelCustomerOrder(orderId) {
       if (!confirm('هل أنت متأكد من إلغاء هذا الطلب؟')) return;
+      const phone = document.getElementById('searchPhone').value.trim();
       try {
-        const res = await fetch(`/api/orders/${orderId}/cancel`, { method: 'POST' });
+        const res = await fetch(`/api/orders/${orderId}/cancel`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone })
+        });
         if (!res.ok) throw new Error();
         showToast('تم إلغاء الطلب بنجاح');
         fetchOrders();
@@ -793,8 +855,11 @@
        Auto Load
     ══════════════════════════════════════════ */
     window.addEventListener('DOMContentLoaded', () => {
-      const savedPhone = localStorage.getItem('customer_phone');
+      const params = new URLSearchParams(window.location.search);
+      const urlPhone = params.get('phone');
+      const savedPhone = urlPhone ? urlPhone.trim() : localStorage.getItem('customer_phone');
       if (savedPhone) {
+        if (urlPhone) localStorage.setItem('customer_phone', savedPhone);
         document.getElementById('searchPhone').value = savedPhone;
         fetchOrders();
       }
