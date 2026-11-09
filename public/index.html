@@ -306,17 +306,6 @@
             <input type="tel" id="customerPhone" class="form-input" placeholder="07xxxxxxxxx" required autocomplete="tel" oninput="handleCustomerPhoneLookup(this.value)">
           </div>
 
-          <!-- Loyalty Points Recognition Box -->
-          <div id="loyaltyPointsBox" style="display:none; background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.35); border-radius:var(--radius-md); padding:0.55rem 0.75rem;">
-            <label style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem; cursor:pointer; margin:0;">
-              <div style="display:flex; align-items:center; gap:0.45rem;">
-                <input type="checkbox" id="useLoyaltyPointsCheckbox" onchange="renderCartItems()" style="width:16px; height:16px; accent-color:var(--clr-gold); cursor:pointer;">
-                <span id="loyaltyPointsText" style="font-size:0.78rem; font-weight:700; color:var(--clr-gold);">استخدام نقاطي كخصم</span>
-              </div>
-              <span id="loyaltyDiscountBadge" style="font-size:0.75rem; font-weight:800; color:var(--clr-success);"></span>
-            </label>
-          </div>
-
           <div class="form-field">
             <label for="customerName">الاسم الكامل *</label>
             <input type="text" id="customerName" class="form-input" placeholder="ادخل اسمك الكامل" required autocomplete="name">

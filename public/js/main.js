@@ -835,16 +835,12 @@ function updateCartHddMeter() {
   }
 }
 
-// ── Live Customer Recognition & Loyalty Points Lookup ─────────
+// ── Live Customer Name Auto-Recognition Lookup ────────────────
 function handleCustomerPhoneLookup(val) {
   if (phoneLookupTimer) clearTimeout(phoneLookupTimer);
   const cleanPhone = (val || '').trim();
-  const loyaltyBox = document.getElementById('loyaltyPointsBox');
 
   if (cleanPhone.length < 10) {
-    customerPoints = 0;
-    if (loyaltyBox) loyaltyBox.style.display = 'none';
-    renderCartItems();
     return;
   }
 
@@ -859,21 +855,7 @@ function handleCustomerPhoneLookup(val) {
         if (nameInput && !nameInput.value.trim() && data.name && data.name !== 'زبون جديد') {
           nameInput.value = data.name;
         }
-        customerPoints = parseInt(data.points) || 0;
-        if (customerPoints > 0 && loyaltyBox) {
-          loyaltyBox.style.display = 'block';
-          const textEl = document.getElementById('loyaltyPointsText');
-          const discEl = document.getElementById('loyaltyDiscountBadge');
-          if (textEl) textEl.innerHTML = `<i class="fas fa-gift"></i> أهلاً ${data.name || ''}! استخدم نقاطي (${customerPoints} نقطة)`;
-          if (discEl) discEl.textContent = `خصم ${(customerPoints * 100).toLocaleString()} د.ع`;
-        } else if (loyaltyBox) {
-          loyaltyBox.style.display = 'none';
-        }
-      } else {
-        customerPoints = 0;
-        if (loyaltyBox) loyaltyBox.style.display = 'none';
       }
-      renderCartItems();
     } catch (e) {}
   }, 350);
 }
@@ -982,13 +964,7 @@ function renderCartItems() {
     bundleBanner.style.display = 'none';
   }
 
-  // حساب خصم نقاط الولاء
-  const usePointsEl = document.getElementById('useLoyaltyPointsCheckbox');
-  const usePoints = Boolean(usePointsEl && usePointsEl.checked && customerPoints > 0);
-  const afterPromos = Math.max(0, subtotal - bundleDiscount - appliedPromoDisc);
-  const pointsDiscount = usePoints ? Math.min(afterPromos, customerPoints * 100) : 0;
-
-  const totalDiscount = Math.min(subtotal, bundleDiscount + appliedPromoDisc + pointsDiscount);
+  const totalDiscount = Math.min(subtotal, bundleDiscount + appliedPromoDisc);
   const finalPrice = Math.max(0, subtotal - totalDiscount);
 
   if (cartTotal) {
@@ -1011,8 +987,6 @@ async function submitOrder(e) {
   const name  = document.getElementById('customerName').value.trim();
   const phone = document.getElementById('customerPhone').value.trim();
   const notes = document.getElementById('customerNotes') ? document.getElementById('customerNotes').value.trim() : '';
-  const usePointsEl = document.getElementById('useLoyaltyPointsCheckbox');
-  const usePoints = Boolean(usePointsEl && usePointsEl.checked && customerPoints > 0);
 
   if (!name || !phone) { showToast('يرجى إدخال الاسم ورقم الهاتف', 'error'); return; }
 
@@ -1022,7 +996,6 @@ async function submitOrder(e) {
     customer_phone:   phone,
     customer_address: '',
     notes:            notes,
-    use_points:       usePoints,
     promo_code:       appliedPromoCode || '',
     games: cart.map(g => ({
       id:        g.id,

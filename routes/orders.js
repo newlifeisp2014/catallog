@@ -387,7 +387,7 @@ router.get('/:id', async (req, res) => {
 // Create new order (Customer)
 router.post('/', async (req, res) => {
     try {
-        const { customer_name, customer_phone, customer_address, notes, games, use_points, promo_code } = req.body;
+        const { customer_name, customer_phone, customer_address, notes, games, promo_code } = req.body;
 
         if (!customer_name || !customer_phone || !games || !Array.isArray(games) || games.length === 0) {
             return res.status(400).json({ error: 'يرجى إدخال الاسم ورقم الهاتف واختيار لعبة واحدة على الأقل' });
@@ -424,35 +424,15 @@ router.post('/', async (req, res) => {
                 promoDiscount = Math.max(0, parseInt(settings.promo_discount) || 0);
             }
 
-            // 4. Insert or update customer & handle loyalty points
-            const custRes = await client.query('SELECT points FROM customers WHERE phone = $1 FOR UPDATE', [cleanPhone]);
-            let currentPoints = 0;
+            // 4. Insert or update customer record
+            const custRes = await client.query('SELECT phone FROM customers WHERE phone = $1 FOR UPDATE', [cleanPhone]);
             if (custRes.rows.length === 0) {
-                await client.query('INSERT INTO customers (phone, name, points) VALUES ($1, $2, 0)', [cleanPhone, cleanName]);
+                await client.query('INSERT INTO customers (phone, name) VALUES ($1, $2)', [cleanPhone, cleanName]);
             } else {
-                currentPoints = parseInt(custRes.rows[0].points) || 0;
                 await client.query('UPDATE customers SET name = $1 WHERE phone = $2', [cleanName, cleanPhone]);
             }
 
-            let pointsDiscount = 0;
-            let pointsDeducted = 0;
-            const remainingAfterPromos = Math.max(0, subtotalPrice - bundleDiscount - promoDiscount);
-
-            if (use_points && currentPoints > 0 && remainingAfterPromos > 0) {
-                const maxPossibleDiscount = currentPoints * 100; // 1 point = 100 IQD
-                pointsDiscount = Math.min(remainingAfterPromos, maxPossibleDiscount);
-                pointsDeducted = Math.floor(pointsDiscount / 100);
-                pointsDiscount = pointsDeducted * 100;
-
-                if (pointsDeducted > 0) {
-                    await client.query(
-                        'UPDATE customers SET points = GREATEST(0, points - $1) WHERE phone = $2',
-                        [pointsDeducted, cleanPhone]
-                    );
-                }
-            }
-
-            const totalDiscount = Math.min(subtotalPrice, bundleDiscount + promoDiscount + pointsDiscount);
+            const totalDiscount = Math.min(subtotalPrice, bundleDiscount + promoDiscount);
 
             // 5. Create order
             await client.query(
@@ -490,7 +470,6 @@ router.post('/', async (req, res) => {
                 total_price: subtotalPrice,
                 discount: totalDiscount,
                 final_price: Math.max(0, subtotalPrice - totalDiscount),
-                points_deducted: pointsDeducted,
                 message: 'Order created successfully'
             });
         } catch (err) {
@@ -566,20 +545,7 @@ async function updateOrderLogic(id, updateData, res) {
         values.push(id);
         const query = `UPDATE orders SET ${fields.join(', ')} WHERE order_id = $${paramIndex} RETURNING *`;
 
-        const result = await pool.query(query, values);
-
-        // Award points if status changed to delivered
-        if (updateData.status === 'delivered') {
-            const order = result.rows[0];
-            if (order && !order.points_awarded) {
-                const netPaid = Math.max(0, (parseFloat(order.total_price) || 0) - (parseFloat(order.discount) || 0));
-                const pointsToAward = Math.floor(netPaid / 1000); // 1 point per 1000 IQD spent
-                if (pointsToAward > 0) {
-                    await pool.query('UPDATE customers SET points = points + $1 WHERE phone = $2', [pointsToAward, order.customer_phone]);
-                }
-                await pool.query('UPDATE orders SET points_awarded = true WHERE order_id = $1', [id]);
-            }
-        }
+        await pool.query(query, values);
 
         res.json({ success: true, message: 'Order updated successfully' });
     } catch (error) {

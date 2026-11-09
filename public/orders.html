@@ -404,20 +404,10 @@
 
       try {
         localStorage.setItem('customer_phone', phone);
-        const [res, custRes] = await Promise.all([
-          fetch('/api/orders?phone=' + encodeURIComponent(phone)),
-          fetch('/api/customers/' + encodeURIComponent(phone)).catch(() => null)
-        ]);
+        const res = await fetch('/api/orders?phone=' + encodeURIComponent(phone));
         if (!res.ok) throw new Error();
         const data = await res.json();
         const orders = data.data || [];
-        let custPoints = 0;
-        let custProfileName = '';
-        if (custRes && custRes.ok) {
-          const cData = await custRes.json().catch(() => ({}));
-          custPoints = parseInt(cData.points) || 0;
-          custProfileName = cData.name || '';
-        }
 
         if (orders.length === 0) {
           container.innerHTML = `
@@ -429,23 +419,7 @@
           return;
         }
 
-        const loyaltyBannerHtml = custPoints > 0 ? `
-          <div style="background:linear-gradient(135deg, rgba(245,158,11,0.14), rgba(124,58,237,0.14)); border:1px solid rgba(245,158,11,0.35); border-radius:var(--radius-lg); padding:0.9rem 1.2rem; margin-bottom:1rem; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.5rem;">
-            <div style="display:flex; align-items:center; gap:0.65rem;">
-              <span style="width:36px; height:36px; border-radius:10px; background:var(--grad-gold); color:#07050f; display:flex; align-items:center; justify-content:center; font-size:1rem;"><i class="fas fa-gift"></i></span>
-              <div>
-                <div style="font-weight:800; font-size:0.92rem; color:#fff;">رصيد نقاط الولاء${custProfileName ? ` — ${custProfileName}` : ''}</div>
-                <div style="font-size:0.78rem; color:var(--clr-text-muted);">يمكنك استخدام نقاطك كخصم مباشر في طلبك القادم من السلة</div>
-              </div>
-            </div>
-            <div style="text-align:left;">
-              <span style="font-size:1.1rem; font-weight:900; color:var(--clr-gold);">${custPoints} نقطة</span>
-              <div style="font-size:0.74rem; color:var(--clr-success); font-weight:700;">تساوي خصم ${(custPoints * 100).toLocaleString()} د.ع</div>
-            </div>
-          </div>
-        ` : '';
-
-        container.innerHTML = loyaltyBannerHtml + orders.map((order, idx) => {
+        container.innerHTML = orders.map((order, idx) => {
           const orderId   = order.orderId || order.order_id || order.id;
           const custName  = order.customerName || order.customer_name || 'زبون';
           const total     = parseFloat(order.totalPrice || 0);

@@ -2193,25 +2193,17 @@ function renderCustomers() {
   if (!tbody) return;
 
   if (allCustomers.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--clr-text-muted);">لا يوجد زبائن مسجلون</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:2rem;color:var(--clr-text-muted);">لا يوجد زبائن مسجلون</td></tr>`;
     return;
   }
 
-  const sorted = [...allCustomers].sort((a, b) => (b.points || 0) - (a.points || 0));
-
-  tbody.innerHTML = sorted.map((c, i) => {
-    const rankCls = i === 0 ? 'customer-rank--gold' : i === 1 ? 'customer-rank--silver' : i === 2 ? 'customer-rank--bronze' : '';
-    const safeName = (c.name || '').replace(/'/g, "\\'");
+  tbody.innerHTML = allCustomers.map((c, i) => {
     return `<tr>
-      <td><span class="customer-rank ${rankCls}">${i + 1}</span></td>
+      <td><span class="customer-rank">${i + 1}</span></td>
       <td style="font-family:var(--font-en);font-size:0.85rem;">${c.phone}</td>
       <td><strong>${c.name}</strong></td>
-      <td><strong style="color:var(--clr-gold);">${c.points || 0}</strong> <span style="font-size:0.75rem;color:var(--clr-text-muted);">نقطة</span></td>
       <td>
         <div style="display:flex;gap:0.4rem;flex-wrap:wrap;">
-          <button class="btn btn-ghost btn-sm" onclick="editCustomerPoints('${c.phone}', '${safeName}', ${c.points || 0})" title="تعديل النقاط والاسم">
-            <i class="fas fa-coins" style="color:var(--clr-gold);"></i> تعديل النقاط
-          </button>
           <button class="btn btn-ghost btn-sm" onclick="viewCustomerOrders('${c.phone}')" title="عرض طلبات الزبون">
             <i class="fas fa-shopping-bag"></i> الطلبات
           </button>
@@ -2221,42 +2213,12 @@ function renderCustomers() {
   }).join('');
 }
 
-async function editCustomerPoints(phone, currentName, currentPoints) {
-  const newPointsStr = prompt(`تعديل رصيد نقاط الزبون (${currentName} - ${phone}):\n(كل 1 نقطة = 100 د.ع خصم)`, currentPoints);
-  if (newPointsStr === null) return;
-  const points = parseInt(newPointsStr);
-  if (isNaN(points) || points < 0) {
-    showToast('يرجى إدخال رقم نقاط صحيح', 'error');
-    return;
-  }
-
-  try {
-    const res = await fetch(`/api/customers/${encodeURIComponent(phone)}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({ name: currentName, points })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'فشل تحديث النقاط');
-
-    const cust = allCustomers.find(c => c.phone === phone);
-    if (cust) cust.points = points;
-    renderCustomers();
-    showToast(`✅ تم تحديث نقاط الزبون إلى ${points} نقطة`);
-  } catch (err) {
-    showToast(err.message || 'خطأ في تحديث النقاط', 'error');
-  }
-}
-
 function viewCustomerOrders(phone) {
   switchTab('orders', document.getElementById('nav-orders'));
-  const searchInput = document.getElementById('orderSearchInput');
+  const searchInput = document.getElementById('ordersSearch');
   if (searchInput) {
     searchInput.value = phone;
-    renderOrders();
+    filterOrders(phone);
   }
 }
 
