@@ -268,7 +268,7 @@
   <script>
     // Generate Catalog QR on load
     window.addEventListener('load', () => {
-      const url = window.location.origin + '/?source=qr';
+      const url = window.location.origin + '/install.html';
       document.getElementById('catalogUrl').textContent = url;
       document.getElementById('catalogQrCode').innerHTML = '';
       new QRCode(document.getElementById('catalogQrCode'), {

@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>حمّل كتالوج NewLife</title>
+  <meta name="theme-color" content="#07050f">
+  <meta name="robots" content="noindex">
+
+  <!-- Capture the install prompt as early as possible -->
+  <script>
+    window.__pwaPrompt = null;
+    window.addEventListener('beforeinstallprompt', function (e) {
+      e.preventDefault();
+      window.__pwaPrompt = e;
+    });
+  </script>
+
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/png" href="/icons/icon-192x192.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="NewLife">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; }
+    body {
+      font-family: 'Cairo', system-ui, sans-serif;
+      background: #07050f;
+      color: #fff;
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      padding-top: calc(1.5rem + env(safe-area-inset-top));
+      padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
+      overflow: hidden;
+      position: relative;
+    }
+    body::before, body::after {
+      content: '';
+      position: absolute;
+      width: 420px; height: 420px;
+      border-radius: 50%;
+      filter: blur(90px);
+      opacity: .35;
+      z-index: 0;
+    }
+    body::before { background: #7c3aed; top: -140px; right: -120px; }
+    body::after  { background: #f59e0b; bottom: -180px; left: -140px; opacity: .22; }
+
+    .card {
+      position: relative; z-index: 1;
+      width: 100%; max-width: 380px;
+      text-align: center;
+      animation: rise .6s cubic-bezier(.2,.8,.2,1) both;
+    }
+    @keyframes rise { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
+
+    .app-icon {
+      width: 120px; height: 120px;
+      border-radius: 28px;
+      margin: 0 auto 1.5rem;
+      display: block;
+      box-shadow: 0 12px 40px rgba(124,58,237,.45), 0 0 0 1px rgba(255,255,255,.08);
+    }
+    h1 { font-size: 1.7rem; font-weight: 900; margin-bottom: .4rem; }
+    .sub { color: rgba(255,255,255,.6); font-size: .95rem; line-height: 1.8; margin-bottom: 2rem; }
+
+    .install-btn {
+      width: 100%;
+      border: none;
+      border-radius: 16px;
+      padding: 1.1rem 1rem;
+      font-family: inherit;
+      font-size: 1.2rem;
+      font-weight: 800;
+      color: #fff;
+      cursor: pointer;
+      background: linear-gradient(135deg, #7c3aed, #f59e0b);
+      box-shadow: 0 10px 30px rgba(124,58,237,.5);
+      display: flex; align-items: center; justify-content: center; gap: .6rem;
+      animation: pulse 2.2s ease-in-out infinite;
+      transition: transform .15s;
+    }
+    .install-btn:active { transform: scale(.97); }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 10px 30px rgba(124,58,237,.5); }
+      50%      { box-shadow: 0 10px 44px rgba(245,158,11,.55); }
+    }
+
+    .skip {
+      display: inline-block;
+      margin-top: 1.25rem;
+      color: rgba(255,255,255,.5);
+      font-size: .88rem;
+      text-decoration: underline;
+      background: none; border: none; font-family: inherit; cursor: pointer;
+    }
+
+    .help {
+      display: none;
+      margin-top: 1.25rem;
+      padding: 1rem 1.1rem;
+      background: rgba(255,255,255,.07);
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 14px;
+      font-size: .9rem;
+      line-height: 2;
+      text-align: right;
+      color: rgba(255,255,255,.88);
+    }
+
+    .done { display: none; }
+    .done .check {
+      width: 84px; height: 84px; border-radius: 50%;
+      margin: 0 auto 1.25rem;
+      background: rgba(34,197,94,.15);
+      border: 2px solid #22c55e;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.4rem; color: #22c55e;
+    }
+  </style>
+</head>
+<body>
+
+  <main class="card" id="mainView">
+    <img class="app-icon" src="/icons/icon-512x512.png" alt="NewLife">
+    <h1>كتالوج NewLife</h1>
+    <p class="sub">ثبّت التطبيق على تليفونك وتصفح كل الألعاب وكّدم طلبك بضغطة وحدة</p>
+
+    <button class="install-btn" id="installBtn" type="button">
+      <span aria-hidden="true">⬇</span> تثبيت التطبيق
+    </button>
+
+    <div class="help" id="help"></div>
+
+    <button class="skip" id="skipBtn" type="button">فتح الكتالوك بدون تثبيت</button>
+  </main>
+
+  <main class="card done" id="doneView">
+    <div class="check">✓</div>
+    <h1>تم التثبيت!</h1>
+    <p class="sub">جاري فتح الكتالوك...</p>
+  </main>
+
+  <script>
+    var CATALOG_URL = '/?source=pwa';
+
+    function isStandalone() {
+      return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    }
+    function isIOS() {
+      return /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+             (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    }
+    function isInApp() {
+      return /FBAN|FBAV|Instagram|Snapchat|TikTok|Line\/|Telegram|WhatsApp|; wv\)/i.test(navigator.userAgent);
+    }
+    function goCatalog() { window.location.replace(CATALOG_URL); }
+
+    // Already installed / opened from the home-screen icon -> straight to the catalog
+    if (isStandalone()) { goCatalog(); }
+
+    // Service worker is needed so the browser offers the install dialog
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('/service-worker.js').catch(function () {});
+      });
+    }
+
+    var installed = false;
+    function onInstalled() {
+      if (installed) return;
+      installed = true;
+      document.getElementById('mainView').style.display = 'none';
+      document.getElementById('doneView').style.display = 'block';
+      setTimeout(goCatalog, 1500);
+    }
+    window.addEventListener('appinstalled', onInstalled);
+
+    function showHelp() {
+      var help = document.getElementById('help');
+      var html;
+      if (isInApp()) {
+        html = '⚠️ أنت فاتح الرابط من داخل تطبيق (كاميرا / واتساب...) والتثبيت ما يشتغل هنا.<br>اضغط <b>⋮</b> أو <b>مشاركة</b> ثم <b>«فتح في المتصفح»</b> (Chrome أو Safari) وبعدها اضغط تثبيت.';
+      } else if (isIOS()) {
+        html = '📱 على الآيفون (من Safari):<br>1) اضغط زر المشاركة <b>⬆︎</b> بالأسفل<br>2) اختر <b>«إضافة إلى الشاشة الرئيسية»</b><br>3) اضغط <b>إضافة</b><br>وبعدها افتح التطبيق من الشاشة الرئيسية.';
+      } else {
+        html = '📱 على الأندرويد (Chrome):<br>1) اضغط النقاط الثلاث <b>⋮</b> أعلى المتصفح<br>2) اختر <b>«تثبيت التطبيق»</b> أو <b>«إضافة إلى الشاشة الرئيسية»</b>';
+      }
+      help.innerHTML = html;
+      help.style.display = 'block';
+    }
+
+    document.getElementById('installBtn').addEventListener('click', function () {
+      var p = window.__pwaPrompt;
+      if (!p) { showHelp(); return; }          // iPhone, in-app browsers, or prompt not offered
+      p.prompt();
+      p.userChoice.then(function (choice) {
+        window.__pwaPrompt = null;
+        if (choice.outcome === 'accepted') { onInstalled(); }
+      });
+    });
+
+    document.getElementById('skipBtn').addEventListener('click', goCatalog);
+  </script>
+</body>
+</html>
