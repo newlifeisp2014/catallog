@@ -1227,27 +1227,93 @@ function showToast(msg, type = 'success') {
 }
 
 // ── PWA Installation Logic ────────────────────────────────────
-let deferredPWAInstallPrompt = null;
+// The browser never allows a silent install: the user must tap "Install".
+// So the goal is to show the install bar immediately (especially after a QR scan)
+// and call the native install dialog with one tap.
+const PWA_DISMISS_KEY = 'nl_pwa_dismissed_at';
+const PWA_DISMISS_MS  = 24 * 60 * 60 * 1000; // hide for 1 day after the user closes it
 
-window.addEventListener('beforeinstallprompt', e => {
-  e.preventDefault();
-  deferredPWAInstallPrompt = e;
+function pwaIsStandalone() {
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+function pwaIsIOS() {
+  return /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+         (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+function pwaIsInAppBrowser() {
+  return /FBAN|FBAV|Instagram|Snapchat|TikTok|Line\/|Telegram|WhatsApp|; wv\)/i.test(navigator.userAgent);
+}
+function pwaCameFromQR() {
+  return new URLSearchParams(location.search).get('source') === 'qr';
+}
+
+function showPWABanner() {
   const banner = document.getElementById('pwaInstallBanner');
-  if (banner) banner.style.display = 'block';
-});
+  if (!banner || pwaIsStandalone()) return;
+  banner.style.display = 'block';
+  requestAnimationFrame(() => requestAnimationFrame(() => { banner.style.transform = 'translateY(0)'; }));
+}
+function hidePWABanner() {
+  const banner = document.getElementById('pwaInstallBanner');
+  if (!banner) return;
+  banner.style.transform = 'translateY(110%)';
+  setTimeout(() => { banner.style.display = 'none'; }, 450);
+}
+function dismissPWABanner() {
+  try { localStorage.setItem(PWA_DISMISS_KEY, String(Date.now())); } catch (e) {}
+  hidePWABanner();
+}
+
+function showPWAHelp() {
+  const help = document.getElementById('pwaHelp');
+  if (!help) return;
+  let html;
+  if (pwaIsInAppBrowser()) {
+    html = '⚠️ أنت فاتح الرابط من داخل تطبيق (كاميرا / واتساب...) والتثبيت غير متاح هنا.<br>اضغط <b>⋮</b> أو <b>مشاركة</b> ثم <b>«فتح في المتصفح»</b> (Chrome / Safari) وبعدها اضغط تثبيت.';
+  } else if (pwaIsIOS()) {
+    html = '📱 على الآيفون (من Safari):<br>1) اضغط زر المشاركة <i class="fas fa-arrow-up-from-bracket"></i> بالأسفل<br>2) اختر <b>«إضافة إلى الشاشة الرئيسية»</b><br>3) اضغط <b>إضافة</b>';
+  } else {
+    html = '📱 على الأندرويد (Chrome):<br>1) اضغط النقاط الثلاث <b>⋮</b> أعلى المتصفح<br>2) اختر <b>«تثبيت التطبيق»</b> أو <b>«إضافة إلى الشاشة الرئيسية»</b>';
+  }
+  help.innerHTML = html;
+  help.style.display = 'block';
+}
 
 function triggerPWAInstall() {
-  if (deferredPWAInstallPrompt) {
-    deferredPWAInstallPrompt.prompt();
-    deferredPWAInstallPrompt.userChoice.then(choice => {
-      const banner = document.getElementById('pwaInstallBanner');
-      if (banner) banner.style.display = 'none';
-      if (choice.outcome === 'accepted') {
-        showToast('تم تثبيت التطبيق بنجاح! 🎉');
-      }
-      deferredPWAInstallPrompt = null;
-    });
-  } else {
-    alert('📱 لتثبيت التطبيق كبرنامج:\n\n• أندرويد (Chrome): اضغط النقاط الثلاث ⋮ ثم "تثبيت التطبيق"\n• آيفون (Safari): اضغط زر المشاركة ⬆ ثم "إضافة إلى الشاشة الرئيسية"');
-  }
+  const promptEvent = window.__pwaPrompt;
+  if (!promptEvent) { showPWAHelp(); return; }   // iOS, in-app browsers, or prompt not offered yet
+  promptEvent.prompt();
+  promptEvent.userChoice.then(choice => {
+    window.__pwaPrompt = null;
+    if (choice.outcome === 'accepted') {
+      hidePWABanner();
+      showToast('جاري تثبيت التطبيق... 🎉');
+    }
+  });
 }
+
+window.addEventListener('appinstalled', () => {
+  window.__pwaPrompt = null;
+  hidePWABanner();
+  showToast('تم تثبيت التطبيق بنجاح! 🎉');
+});
+
+(function initPWAInstallBanner() {
+  if (pwaIsStandalone()) return;            // already running as the installed app
+
+  // Visitors who scanned the QR always see the bar; others only if they did not close it recently
+  let dismissedRecently = false;
+  try {
+    const t = parseInt(localStorage.getItem(PWA_DISMISS_KEY) || '0', 10);
+    dismissedRecently = t && (Date.now() - t) < PWA_DISMISS_MS;
+  } catch (e) {}
+  if (dismissedRecently && !pwaCameFromQR()) return;
+
+  // Show the install bar right away; games keep loading underneath
+  setTimeout(showPWABanner, 400);
+
+  // iPhone/in-app browsers never fire beforeinstallprompt -> show the steps directly after a QR scan
+  if (pwaCameFromQR() && (pwaIsIOS() || pwaIsInAppBrowser())) {
+    setTimeout(showPWAHelp, 900);
+  }
+})();

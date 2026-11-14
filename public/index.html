@@ -7,10 +7,20 @@
   <meta name="description" content="تصفح واطلب أحدث ألعاب البلايستيشن بجودة عالية وتثبيت سريع — NewLife">
   <meta name="theme-color" content="#07050f">
 
+  <!-- PWA: capture the install prompt as early as possible (can fire before main.js runs) -->
+  <script>
+    window.__pwaPrompt = null;
+    window.addEventListener('beforeinstallprompt', function (e) {
+      e.preventDefault();
+      window.__pwaPrompt = e;
+      window.dispatchEvent(new Event('pwa-ready'));
+    });
+  </script>
+
   <!-- PWA & App Icons -->
   <link rel="manifest" href="/manifest.json">
   <link rel="icon" type="image/png" href="/icons/icon-192x192.png">
-  <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -79,20 +89,22 @@
   </header>
 
   <!-- ─── PWA Install Banner ─── -->
-  <div id="pwaInstallBanner" style="display:none; position:fixed; bottom:0; left:0; right:0; z-index:9999; padding:0.75rem 1rem; background:linear-gradient(135deg,#1a0a3e,#0f0a28); border-top:1px solid rgba(124,58,237,0.4); backdrop-filter:blur(12px); box-shadow:0 -4px 24px rgba(124,58,237,0.25);">
+  <div id="pwaInstallBanner" style="display:none; position:fixed; bottom:0; left:0; right:0; z-index:9999; padding:0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom)); background:linear-gradient(135deg,#1a0a3e,#0f0a28); border-top:1px solid rgba(124,58,237,0.4); backdrop-filter:blur(12px); box-shadow:0 -4px 24px rgba(124,58,237,0.25); transform:translateY(110%); transition:transform .45s cubic-bezier(.2,.8,.2,1);">
     <div style="display:flex; align-items:center; gap:0.75rem; max-width:600px; margin:0 auto;">
       <img src="/icons/icon-192x192.png" style="width:46px;height:46px;border-radius:12px;flex-shrink:0;" alt="NewLife">
       <div style="flex:1; min-width:0;">
         <div style="font-weight:800;font-size:0.95rem;color:#fff;">NewLife Games Catalog</div>
         <div style="font-size:0.78rem;color:rgba(255,255,255,0.55);">ثبّت التطبيق على شاشتك الرئيسية للوصول السريع</div>
       </div>
-      <button onclick="triggerPWAInstall()" style="background:linear-gradient(135deg,#7c3aed,#f59e0b);color:#fff;border:none;border-radius:10px;padding:0.55rem 1rem;font-weight:700;font-size:0.88rem;cursor:pointer;white-space:nowrap;flex-shrink:0;">
+      <button id="pwaInstallBtn" onclick="triggerPWAInstall()" style="background:linear-gradient(135deg,#7c3aed,#f59e0b);color:#fff;border:none;border-radius:10px;padding:0.55rem 1rem;font-weight:700;font-size:0.88rem;cursor:pointer;white-space:nowrap;flex-shrink:0;">
         <i class="fas fa-download" style="margin-left:0.3rem;"></i> تثبيت
       </button>
-      <button onclick="document.getElementById('pwaInstallBanner').style.display='none'" style="background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.5);border:none;border-radius:8px;padding:0.5rem 0.6rem;cursor:pointer;flex-shrink:0;">
+      <button onclick="dismissPWABanner()" aria-label="إغلاق" style="background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.5);border:none;border-radius:8px;padding:0.5rem 0.6rem;cursor:pointer;flex-shrink:0;">
         <i class="fas fa-times"></i>
       </button>
     </div>
+    <!-- Manual steps (iPhone / in-app browsers / when the browser has not offered the install prompt) -->
+    <div id="pwaHelp" style="display:none; max-width:600px; margin:0.75rem auto 0; padding:0.75rem 1rem; background:rgba(255,255,255,0.06); border-radius:10px; font-size:0.84rem; line-height:1.9; color:rgba(255,255,255,0.85);"></div>
   </div>
 
   <!-- ─── Cinematic Featured Hero Showcase ─── -->
