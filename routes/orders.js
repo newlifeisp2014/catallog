@@ -70,6 +70,13 @@ function sendTelegramMessage(botToken, chatId, text) {
     });
 }
 
+function escapeTelegramHtml(str) {
+    return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
 async function sendTelegramOrderAlert(order, eventType = 'new') {
     try {
         const settings = await getStoreSettings();
@@ -87,22 +94,24 @@ async function sendTelegramOrderAlert(order, eventType = 'new') {
             const m = String(g.size || '').match(/([\d.]+)/);
             if (m) {
                 let val = parseFloat(m[1]);
-                const low = String(g.size).toLowerCase();
-                if (low.includes('tb') || low.includes('ت')) val *= 1024;
-                else if (low.includes('mb') || low.includes('م')) val /= 1024;
-                totalGB += val;
+                if (Number.isFinite(val)) {
+                    const low = String(g.size).toLowerCase();
+                    if (low.includes('tb') || low.includes('ت')) val *= 1024;
+                    else if (low.includes('mb') || low.includes('م')) val /= 1024;
+                    totalGB += val;
+                }
             }
         });
 
         const sortedDrives = Object.keys(byDrive).sort((a, b) => Number(a) - Number(b));
         const gamesFormatted = sortedDrives.map(hd => {
-            const list = byDrive[hd].map(g => `   • ${g.name_ar || g.nameAr || g.name} (${g.size || '—'})`).join('\n');
-            return `💿 <b>هارد ${hd}:</b>\n${list}`;
+            const list = byDrive[hd].map(g => `   • ${escapeTelegramHtml(g.name_ar || g.nameAr || g.name)} (${escapeTelegramHtml(g.size || '—')})`).join('\n');
+            return `💿 <b>هارد ${escapeTelegramHtml(hd)}:</b>\n${list}`;
         }).join('\n\n');
 
         const header = eventType === 'new'
             ? `🔔 <b>طلب جديد في متجر NewLife!</b>`
-            : `✏️ <b>تعديل طلب من الزبون (#${order.orderId})</b>`;
+            : `✏️ <b>تعديل طلب من الزبون (#${escapeTelegramHtml(order.orderId)})</b>`;
 
         const finalPrice = Math.max(0, (parseFloat(order.totalPrice) || 0) - (parseFloat(order.discount) || 0));
         let cleanPhone = String(order.customerPhone || '').replace(/[^0-9]/g, '');
@@ -110,10 +119,10 @@ async function sendTelegramOrderAlert(order, eventType = 'new') {
 
         const msg = `${header}\n` +
             `━━━━━━━━━━━━━━━━━━\n` +
-            `🧾 <b>رقم الطلب:</b> <code>#${order.orderId}</code>\n` +
-            `👤 <b>الزبون:</b> ${order.customerName}\n` +
-            `📱 <b>الهاتف:</b> <code>${order.customerPhone}</code>\n` +
-            (order.notes ? `📝 <b>ملاحظات:</b> ${order.notes}\n` : '') +
+            `🧾 <b>رقم الطلب:</b> <code>#${escapeTelegramHtml(order.orderId)}</code>\n` +
+            `👤 <b>الزبون:</b> ${escapeTelegramHtml(order.customerName)}\n` +
+            `📱 <b>الهاتف:</b> <code>${escapeTelegramHtml(order.customerPhone)}</code>\n` +
+            (order.notes ? `📝 <b>ملاحظات:</b> ${escapeTelegramHtml(order.notes)}\n` : '') +
             `━━━━━━━━━━━━━━━━━━\n` +
             `🎮 <b>الألعاب المطلوبة (${(order.games || []).length}):</b>\n\n${gamesFormatted}\n\n` +
             `━━━━━━━━━━━━━━━━━━\n` +
@@ -248,10 +257,12 @@ router.post('/settings/config', verifyToken, async (req, res) => {
 
 router.post('/settings/test-telegram', verifyToken, async (req, res) => {
     try {
-        const { telegram_bot_token, telegram_chat_id } = req.body;
+        const { telegram_bot_token, telegram_chat_id, botToken, chatId: altChatId } = req.body;
         const s = await getStoreSettings();
-        const token = telegram_bot_token !== undefined ? telegram_bot_token : s.telegram_bot_token;
-        const chatId = telegram_chat_id !== undefined ? telegram_chat_id : s.telegram_chat_id;
+        const rawToken = telegram_bot_token !== undefined ? telegram_bot_token : botToken;
+        const rawChatId = telegram_chat_id !== undefined ? telegram_chat_id : altChatId;
+        const token = rawToken !== undefined ? rawToken : s.telegram_bot_token;
+        const chatId = rawChatId !== undefined ? rawChatId : s.telegram_chat_id;
 
         if (!token || !chatId) {
             return res.status(400).json({ error: 'يرجى إدخال Bot Token و Chat ID أولاً' });
@@ -291,7 +302,7 @@ router.get('/', async (req, res) => {
                 return res.status(403).json({ error: 'Access denied. Phone number or Admin Token required.' });
             }
             try {
-                jwt.verify(tokenPart, process.env.JWT_SECRET);
+                jwt.verify(tokenPart, JWT_SECRET);
             } catch (err) {
                 return res.status(401).json({ error: 'Invalid or expired Admin Token.' });
             }
@@ -658,7 +669,7 @@ router.post('/:id/cancel', async (req, res) => {
         } else if (req.headers['authorization']) {
             const tokenPart = req.headers['authorization'].split(' ')[1];
             try {
-                jwt.verify(tokenPart, process.env.JWT_SECRET);
+                jwt.verify(tokenPart, JWT_SECRET);
                 isAuthorized = true;
             } catch {}
         }

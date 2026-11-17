@@ -1165,6 +1165,12 @@ router.put('/:id', verifyToken, async (req, res) => {
         const { id } = req.params;
         const { name, nameAr, price, size, category, image, description, trailer, notes, hardDrive, isNew, isArabic, platform, available } = req.body;
 
+        if (!name || !name.trim() || price === undefined || !size || !size.trim()) {
+            return res.status(400).json({ error: 'يرجى ملء كافة الحقول الأساسية (الاسم، السعر، الحجم)' });
+        }
+
+        const finalName = name.trim();
+        const finalNameAr = (nameAr && nameAr.trim() !== '') ? nameAr.trim() : finalName;
         const isNewParam = (isNew !== undefined) ? Boolean(isNew) : null;
         const isArabicParam = (isArabic !== undefined) ? Boolean(isArabic) : null;
         const availableParam = (available !== undefined) ? Boolean(available) : null;
@@ -1183,7 +1189,7 @@ router.put('/:id', verifyToken, async (req, res) => {
 
         let finalCat = category;
         if (!finalCat || finalCat === 'auto') {
-            finalCat = autoClassifyGame(name, nameAr, description);
+            finalCat = autoClassifyGame(finalName, finalNameAr, description);
         }
 
         await pool.query(
@@ -1195,11 +1201,11 @@ router.put('/:id', verifyToken, async (req, res) => {
                 platform = COALESCE($13, platform),
                 available = COALESCE($14, available)
              WHERE id = $15`,
-            [name, nameAr, price, size, finalCat, finalImage, description || '', trailer || '', notes || '', hardDrive || '1', isNewParam, isArabicParam, platformParam, availableParam, id]
+            [finalName, finalNameAr, price, size.trim(), finalCat, finalImage, description || '', trailer || '', notes || '', hardDrive || '1', isNewParam, isArabicParam, platformParam, availableParam, id]
         );
 
         res.json({
-            id, name, nameAr, price, size, category: finalCat, image: finalImage,
+            id, name: finalName, nameAr: finalNameAr, price, size: size.trim(), category: finalCat, image: finalImage,
             description, trailer, notes, hardDrive: hardDrive || '1',
             isNew: isNewParam, isArabic: isArabicParam, platform: platformParam || 'PS4', available: availableParam
         });
@@ -1372,7 +1378,7 @@ router.get('/image/:id', async (req, res) => {
         const imgRes = await pool.query('SELECT image_data, mime_type, source_url FROM game_images WHERE id = $1', [id]);
         if (imgRes.rows.length > 0 && imgRes.rows[0].image_data) {
             const row = imgRes.rows[0];
-            const matches = row.image_data.match(/^data:image\/(\w+);base64,(.+)$/);
+            const matches = row.image_data.match(/^data:image\/([\w+-]+);base64,(.+)$/);
             if (matches) {
                 const mime = row.mime_type || `image/${matches[1] === 'jpg' ? 'jpeg' : matches[1]}`;
                 const buf = Buffer.from(matches[2], 'base64');
@@ -1424,12 +1430,12 @@ router.post('/upload-custom-image', verifyToken, async (req, res) => {
             return res.status(400).json({ error: 'بيانات الصورة غير صالحة' });
         }
 
-        const matches = imageData.match(/^data:image\/(\w+);base64,(.+)$/);
+        const matches = imageData.match(/^data:image\/([\w+-]+);base64,(.+)$/);
         if (!matches) {
             return res.status(400).json({ error: 'تنسيق الصورة غير مدعوم' });
         }
 
-        const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
+        const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1].split('+')[0];
         const mimeType = `image/${ext === 'jpg' ? 'jpeg' : ext}`;
         const buffer = Buffer.from(matches[2], 'base64');
 

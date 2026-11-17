@@ -341,6 +341,7 @@
     ];
 
     let allCatalogGames = []; // كل ألعاب الكتالوك
+    let loadedOrdersById = {}; // تخزين الطلبات المحملة لتجنب مشاكل الرموز الخاصة في onclick
     let eomOrderId      = ''; // رقم الطلب قيد التعديل
     let eomPhone        = ''; // رقم هاتف الزبون
     let eomGames        = []; // الألعاب الحالية في الطلب
@@ -354,6 +355,7 @@
       const numMatch = s.match(/([\d.]+)/);
       if (!numMatch) return 0;
       const num = parseFloat(numMatch[1]);
+      if (!Number.isFinite(num)) return 0;
       const lower = s.toLowerCase();
       if (lower.includes('tb') || lower.includes('ت')) return num * 1024;
       if (lower.includes('mb') || lower.includes('م')) return num / 1024;
@@ -410,6 +412,7 @@
         const orders = data.data || [];
 
         if (orders.length === 0) {
+          loadedOrdersById = {};
           container.innerHTML = `
             <div class="state-view">
               <div class="state-view__icon"><i class="fas fa-box-open"></i></div>
@@ -418,6 +421,12 @@
             </div>`;
           return;
         }
+
+        loadedOrdersById = {};
+        orders.forEach(o => {
+          const id = o.orderId || o.order_id || o.id;
+          if (id) loadedOrdersById[id] = o;
+        });
 
         container.innerHTML = orders.map((order, idx) => {
           const orderId   = order.orderId || order.order_id || order.id;
@@ -448,7 +457,7 @@
               <div style="display:flex; flex-direction:column; align-items:flex-end; gap:0.4rem;">
                 <span class="badge ${s.cls}">${s.label}</span>
                 ${status !== 'delivered' && status !== 'cancelled' ? `
-                  <button class="btn btn-ghost btn-sm" onclick="toggleOrderNotification('${orderId}', '${custName.replace(/'/g, "\\'")}') " id="notify-btn-${orderId}" title="تفعيل إشعار الجاهزية على المتصفح" style="font-size:0.72rem; color:var(--clr-gold); padding:0.2rem 0.55rem; border-radius:var(--radius-sm); border:1px solid rgba(245,158,11,0.25);">
+                  <button class="btn btn-ghost btn-sm" onclick="toggleOrderNotification('${orderId}')" id="notify-btn-${orderId}" title="تفعيل إشعار الجاهزية على المتصفح" style="font-size:0.72rem; color:var(--clr-gold); padding:0.2rem 0.55rem; border-radius:var(--radius-sm); border:1px solid rgba(245,158,11,0.25);">
                     <i class="fas fa-bell"></i> تنبيه الجاهزية
                   </button>
                 ` : ''}
@@ -501,10 +510,7 @@
               <div style="display:flex;gap:0.4rem;align-items:center;">
                 ${isPending ? `
                   <button class="btn btn-gold btn-sm"
-                    onclick="openEOM('${orderId}', '${phone}', ${JSON.stringify((order.games||[]).map(g=>({
-                      id: g.id||'', name: g.name||'', nameAr: g.name_ar||g.nameAr||g.name||'',
-                      price: g.price||0, hardDrive: g.hardDrive||g.hard_drive||'1', size: g.size||'', image: g.image||''
-                    }))).replace(/"/g,'&quot;')})"
+                    onclick="openEOMFromOrder('${orderId}')"
                     style="font-size:0.82rem;">
                     <i class="fas fa-edit"></i> تعديل الطلب
                   </button>
@@ -515,7 +521,7 @@
                   </button>
                 ` : `
                   <span style="font-size:0.78rem;color:var(--clr-text-muted);">
-                    ${isPending?'':'لا يمكن التعديل بعد التأكيد'}
+                    ${status === 'cancelled' ? 'تم إلغاء الطلب' : 'لا يمكن التعديل بعد التأكيد'}
                   </span>
                 `}
                 <span style="font-size:0.78rem;color:var(--clr-text-muted);">${(order.games||[]).length} لعبة</span>
@@ -562,6 +568,22 @@
     /* ══════════════════════════════════════════
        Edit Order Modal — Open / Close
     ══════════════════════════════════════════ */
+    function openEOMFromOrder(orderId) {
+      const order = loadedOrdersById[orderId];
+      if (!order) return;
+      const phone = document.getElementById('searchPhone').value.trim();
+      const currentGames = (order.games || []).map(g => ({
+        id: g.id || '',
+        name: g.name || '',
+        nameAr: g.name_ar || g.nameAr || g.name || '',
+        price: g.price || 0,
+        hardDrive: g.hardDrive || g.hard_drive || '1',
+        size: g.size || '',
+        image: g.image || ''
+      }));
+      openEOM(orderId, phone, currentGames);
+    }
+
     async function openEOM(orderId, phone, currentGames) {
       eomOrderId = orderId;
       eomPhone   = phone;
@@ -573,7 +595,7 @@
       // جلب الكتالوك إذا لم يُجلَب بعد
       if (allCatalogGames.length === 0) {
         try {
-          const res = await fetch('/api/games');
+          const res = await fetch('/api/games?limit=2000');
           const data = await res.json();
           allCatalogGames = (data.data || []).filter(g => g.available !== false);
         } catch(e) {
@@ -775,7 +797,7 @@
     /* ══════════════════════════════════════════
        Browser Notifications for Orders
     ══════════════════════════════════════════ */
-    async function toggleOrderNotification(orderId, custName) {
+    async function toggleOrderNotification(orderId) {
       if (!('Notification' in window)) {
         showToast('متصفحك لا يدعم الإشعارات المباشرة', 'error');
         return;

@@ -20,6 +20,7 @@ function parseSizeToGB(sizeStr) {
   const numMatch = s.match(/([\d.]+)/);
   if (!numMatch) return 0;
   const num = parseFloat(numMatch[1]);
+  if (!Number.isFinite(num)) return 0;
   const lower = s.toLowerCase();
   if (lower.includes('tb') || lower.includes('ت')) return num * 1024;
   if (lower.includes('mb') || lower.includes('م')) return num / 1024;
@@ -158,9 +159,16 @@ function initPolling() {
         showToast(`🔔 تنبيه: تم استلام ${newOrdersCount} طلب جديد!`, 'info');
       }
 
-      // Create a hash of orders to check for meaningful changes (status or new orders)
-      const currentHash = allOrders.map(o => (o.id || o.order_id || o.orderId) + '_' + o.status + '_' + (o.totalPrice || o.total_price || 0)).join('|');
-      const freshHash = freshOrders.map(o => (o.id || o.order_id || o.orderId) + '_' + o.status + '_' + (o.totalPrice || o.total_price || 0)).join('|');
+      // Create a hash of orders to check for meaningful changes (status, total, games count, or updates)
+      const orderHash = o => [
+        o.id || o.order_id || o.orderId,
+        o.status,
+        o.totalPrice || o.total_price || 0,
+        (o.games || []).length,
+        o.updatedAt || o.updated_at || ''
+      ].join('_');
+      const currentHash = allOrders.map(orderHash).join('|');
+      const freshHash = freshOrders.map(orderHash).join('|');
 
       if (currentHash !== freshHash) {
         allOrders = freshOrders;
@@ -236,8 +244,15 @@ function renderDashboardCharts() {
       let dayTotal = 0;
       allOrders.forEach(o => {
         const orderDate = new Date(o.createdAt || o.created_at || o.date);
-        if (orderDate.getDate() === d.getDate() && orderDate.getMonth() === d.getMonth() && o.status !== 'cancelled') {
-          dayTotal += parseFloat(o.totalPrice || o.total_price || o.total || 0);
+        if (
+          orderDate.getDate() === d.getDate() &&
+          orderDate.getMonth() === d.getMonth() &&
+          orderDate.getFullYear() === d.getFullYear() &&
+          o.status !== 'cancelled'
+        ) {
+          const price = parseFloat(o.totalPrice || o.total_price || o.total || 0);
+          const disc  = parseFloat(o.discount || 0);
+          dayTotal += Math.max(0, price - disc);
         }
       });
       salesData.push(dayTotal);
@@ -312,7 +327,7 @@ function renderRecentOrders() {
   if (!tbody) return;
 
   const recent = [...allOrders]
-    .sort((a, b) => new Date(b.created_at || b.date) - new Date(a.created_at || a.date))
+    .sort((a, b) => new Date(b.createdAt || b.created_at || b.date || 0) - new Date(a.createdAt || a.created_at || a.date || 0))
     .slice(0, 8);
 
   if (recent.length === 0) {
@@ -333,10 +348,13 @@ function renderOrders() {
   const q = ordersSearchQ.toLowerCase();
   const filtered = allOrders.filter(o => {
     const matchStatus = orderFilter === 'all' || o.status === orderFilter;
+    const custName  = (o.customerName || o.customer_name || '').toLowerCase();
+    const custPhone = String(o.customerPhone || o.customer_phone || '');
+    const ordId     = String(o.orderId || o.order_id || o.id || '').toLowerCase();
     const matchSearch = !q ||
-      (o.customer_name || '').toLowerCase().includes(q) ||
-      (o.customer_phone || '').includes(q) ||
-      (o.order_id || o.id || '').toLowerCase().includes(q);
+      custName.includes(q) ||
+      custPhone.includes(q) ||
+      ordId.includes(q);
     return matchStatus && matchSearch;
   });
 
@@ -346,7 +364,7 @@ function renderOrders() {
   }
 
   tbody.innerHTML = filtered
-    .sort((a, b) => new Date(b.created_at || b.date) - new Date(a.created_at || a.date))
+    .sort((a, b) => new Date(b.createdAt || b.created_at || b.date || 0) - new Date(a.createdAt || a.created_at || a.date || 0))
     .map(o => orderRow(o, true))
     .join('');
 }
@@ -545,12 +563,11 @@ function viewOrder(id) {
         let capacityAnalysisHtml = '';
         if (totalGB > 0) {
           let targetDrive = 500;
-          let usableSpace = 465;
-          if (totalGB > 465 && totalGB <= 930) { targetDrive = 1000; usableSpace = 930; }
-          else if (totalGB > 930) { targetDrive = 2000; usableSpace = 1860; }
+          let usableSpace = 400;
+          if (totalGB > 400) { targetDrive = 1000; usableSpace = 850; }
 
           const fillPct = Math.min(100, Math.round((totalGB / usableSpace) * 100));
-          const remainingGB = Math.max(0, usableSpace - Math.round(totalGB));
+          const remainingGB = Math.max(0, Math.round(usableSpace - totalGB));
           const isOver = totalGB > usableSpace;
 
           capacityAnalysisHtml = `
@@ -689,10 +706,14 @@ async function toggleGameCompleted(orderId, gameId, isChecked) {
     if (!res.ok) throw new Error();
     
     const totalGames = (o.games || []).length;
-    const cancelledCount = (o.cancelledGames || o.cancelled_games || []).length;
-    const validGames = Math.max(1, totalGames - cancelledCount);
+    const cancelledIds = new Set((o.cancelledGames || o.cancelled_games || []).map(x => x.id));
+    const validGames = Math.max(1, totalGames - cancelledIds.size);
+    const activeDoneCount = (o.games || []).filter(g => {
+      const gId = g.id || g.name || g.nameAr;
+      return !cancelledIds.has(gId) && completedGames.includes(gId);
+    }).length;
 
-    if (completedGames.length >= validGames && totalGames > 0) {
+    if (activeDoneCount >= validGames && totalGames > 0) {
       showToast('🎉 تم تثبيت وإنجاز جميع ألعاب الطلب (بما فيها الملغاة)!');
       if (confirm('تهانينا! تم إنجاز جميع الألعاب. هل تريد تحويل حالة الطلب إلى "مكتمل" وإرسال رسالة إشعار للزبون عبر الواتساب؟')) {
         updateOrderStatus(orderId, 'delivered');
@@ -1993,12 +2014,18 @@ async function saveGame(e) {
   const id     = document.getElementById('gameEditId').value;
   const nameEn = document.getElementById('gameName').value.trim();
   const nameAr = document.getElementById('gameNameAr').value.trim();
+  const sizeVal = document.getElementById('gameSize').value.trim();
+
+  if (!nameEn || !sizeVal) {
+    showToast('يرجى ملء الاسم بالإنجليزي والحجم', 'error');
+    return;
+  }
 
   const body = {
     name:        nameEn,
     nameAr:      nameAr || nameEn,
-    price:       parseInt(document.getElementById('gamePrice').value) || 0,
-    size:        document.getElementById('gameSize').value.trim(),
+    price:       Math.max(0, parseInt(document.getElementById('gamePrice').value) || 0),
+    size:        sizeVal,
     category:    document.getElementById('gameCategory').value,
     hardDrive:   document.getElementById('gameHardDrive').value,
     image:       document.getElementById('gameImage').value.trim(),
@@ -2113,9 +2140,10 @@ async function openSettingsModal() {
     const res = await fetch('/api/orders/settings/config', {
       headers: { 'Authorization': `Bearer ${token}` }
     });
+    if (!res.ok) return;
     const data = await res.json();
-    if (data && data.settings) {
-      const s = data.settings;
+    const s = (data && data.settings) ? data.settings : data;
+    if (s && typeof s === 'object') {
       if (document.getElementById('setTelegramToken')) document.getElementById('setTelegramToken').value = s.telegram_bot_token || '';
       if (document.getElementById('setTelegramChatId')) document.getElementById('setTelegramChatId').value = s.telegram_chat_id || '';
       if (document.getElementById('setBundleEnabled')) document.getElementById('setBundleEnabled').value = s.bundle_enabled === 'false' ? 'false' : 'true';
@@ -2177,7 +2205,7 @@ async function testTelegramAlert() {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
-      body: JSON.stringify({ botToken, chatId })
+      body: JSON.stringify({ telegram_bot_token: botToken, telegram_chat_id: chatId })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'فشل إرسال الرسالة');

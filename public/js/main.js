@@ -451,8 +451,12 @@ function renderCategoryPills() {
     { key: 'Sports', label: 'رياضة', count: availableGames.filter(g => g.category === 'Sports').length }
   ];
 
-  filterTabs.innerHTML = categoriesList
-    .filter(cat => cat.count > 0 || cat.key === 'all')
+  const visibleCats = categoriesList.filter(cat => cat.count > 0 || cat.key === 'all');
+  if (!visibleCats.some(cat => cat.key === activeCategory)) {
+    activeCategory = 'all';
+  }
+
+  filterTabs.innerHTML = visibleCats
     .map(cat => `
       <button 
         class="cat-pill ${activeCategory === cat.key ? 'active' : ''}" 
@@ -518,7 +522,7 @@ function renderGames(resetLimit = true) {
 
     // فلتر البحث
     const matchSearch = !q ||
-      g.name.toLowerCase().includes(q) ||
+      (g.name || '').toLowerCase().includes(q) ||
       (g.nameAr || '').toLowerCase().includes(q) ||
       (g.category || '').toLowerCase().includes(q) ||
       (g.isArabic && ('معرب معربة عربي'.includes(q)));
@@ -774,6 +778,7 @@ function parseSizeToGB(sizeStr) {
   const numMatch = s.match(/([\d.]+)/);
   if (!numMatch) return 0;
   const num = parseFloat(numMatch[1]);
+  if (!Number.isFinite(num)) return 0;
   const lower = s.toLowerCase();
   if (lower.includes('tb') || lower.includes('ت')) return num * 1024;
   if (lower.includes('mb') || lower.includes('م')) return num / 1024;
@@ -809,7 +814,7 @@ function updateCartHddMeter() {
 
   hddBox.style.display = 'block';
   const selectEl = document.getElementById('customerHddSelect');
-  const usableGB = selectEl ? (parseFloat(selectEl.value) || 930) : 930;
+  const usableGB = selectEl ? (parseFloat(selectEl.value) || 850) : 850;
 
   const fillPct = Math.min(100, Math.round((totalGB / usableGB) * 100));
   const isOver = totalGB > usableGB;

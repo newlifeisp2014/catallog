@@ -1,6 +1,8 @@
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
+const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_key_123';
+
 function verifyToken(req, res, next) {
     const token = req.headers['authorization'];
     
@@ -14,7 +16,7 @@ function verifyToken(req, res, next) {
         return res.status(403).json({ error: 'Malformed token.' });
     }
 
-    jwt.verify(tokenPart, process.env.JWT_SECRET, (err, decoded) => {
+    jwt.verify(tokenPart, JWT_SECRET, (err, decoded) => {
         if (err) {
             return res.status(401).json({ error: 'Failed to authenticate token.' });
         }

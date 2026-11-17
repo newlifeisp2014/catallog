@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
 const router = express.Router();
+const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_key_123';
 
 router.post('/login', (req, res) => {
     const { username, password } = req.body;
@@ -11,7 +12,7 @@ router.post('/login', (req, res) => {
     const adminPass = process.env.ADMIN_PASSWORD || 'admin';
 
     if (username === adminUser && password === adminPass) {
-        const token = jwt.sign({ username }, process.env.JWT_SECRET, {
+        const token = jwt.sign({ username }, JWT_SECRET, {
             expiresIn: '24h'
         });
         
