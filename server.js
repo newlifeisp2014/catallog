@@ -16,6 +16,7 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
+app.use('/.well-known', express.static(path.join(__dirname, 'public', '.well-known')));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Seed default games if database is empty and never seeded before
