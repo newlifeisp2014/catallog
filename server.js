@@ -13,6 +13,30 @@ const customerAuthRouter = require('./routes/customer_auth');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Security Headers Middleware
+app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader(
+        'Content-Security-Policy',
+        [
+            "default-src 'self'",
+            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com",
+            "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:",
+            "img-src 'self' data: https: blob:",
+            "media-src 'self' https: data: blob:",
+            "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com",
+            "connect-src 'self' https:",
+            "object-src 'none'",
+            "base-uri 'self'",
+            "frame-ancestors 'self'"
+        ].join('; ')
+    );
+    next();
+});
+
 // Middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
