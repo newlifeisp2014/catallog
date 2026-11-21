@@ -5,7 +5,8 @@
       "namespace": "android_app",
       "package_name": "app.railway.up.catallog_production.twa",
       "sha256_cert_fingerprints": [
-        "F6:A2:2B:18:AB:8D:A5:CB:BC:CF:EF:17:5C:33:AA:D4:BE:5F:C8:D2:FE:07:B4:42:7F:AA:E0:0C:CD:77:56:1F"
+        "F6:A2:2B:18:AB:8D:A5:CB:BC:CF:EF:17:5C:33:AA:D4:BE:5F:C8:D2:FE:07:B4:42:7F:AA:E0:0C:CD:77:56:1F",
+        "CB:D7:F8:96:34:25:D0:10:A2:54:12:32:96:00:5F:A1:64:4B:98:52:28:54:37:58:59:D9:AB:1B:F6:58:67:12"
       ]
     }
   }
