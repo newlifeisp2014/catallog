@@ -632,7 +632,7 @@ function buildGameCard(game, inCart, index) {
         </div>
       ` : ''}
       ${isArabic ? `
-        <div style="position:absolute; top:${isNew ? '2.4rem' : '0.6rem'}; right:0.6rem; z-index:3; background:linear-gradient(135deg, #10b981, #059669); color:#fff; font-size:0.68rem; font-weight:800; padding:0.18rem 0.5rem; border-radius:var(--radius-full); box-shadow:0 4px 12px rgba(16,185,129,0.4); display:inline-flex; align-items:center; gap:3px;">
+        <div style="position:absolute; top:2.4rem; right:0.5rem; z-index:3; background:linear-gradient(135deg, #10b981, #059669); color:#fff; font-size:0.68rem; font-weight:800; padding:0.18rem 0.5rem; border-radius:var(--radius-full); box-shadow:0 4px 12px rgba(16,185,129,0.4); display:inline-flex; align-items:center; gap:3px;">
           <i class="fas fa-language"></i> معربة
         </div>
       ` : ''}
